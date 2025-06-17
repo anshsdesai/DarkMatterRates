@@ -4057,13 +4057,13 @@ def plot_silicon_1e_limit_comparison(plotsig=False):
 
     #1 MeV Limits as function of background (g-day)
     import numpy as np
-    direct_cs_limits = np.array([3.8117663084462336e-33,
-    2.8620430180900985e-33,
-    1.91063070599704e-33,
-    9.588648152603455e-34,
-    4.818231923364183e-34,
-    9.864644845798966e-35,
-    1.0759644677904251e-35]) #for 1 kg day
+    direct_cs_limits = np.array([3.8170770113468556e-33,
+    2.8678251847968514e-33,
+    1.9157631409445324e-33,
+    9.629290521658613e-34,
+    4.846533143572661e-34,
+    9.988858693071315e-35,
+    1.1162567592194836e-35]) #for 1 kg day
     import matplotlib.pyplot as plt
     set_default_plotting_params(fontsize=24)
     plt.figure(figsize=(8,6))
