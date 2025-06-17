@@ -4072,7 +4072,7 @@ def plot_silicon_1e_limit_comparison(plotsig=False):
     large = 24
 
     ax = plt.gca()
-    plt.plot([b*1000 for b in background_rates],direct_cs_limits,label='Direct 90\% Confidence',color='red')
+    plt.plot([b*1000 for b in background_rates],direct_cs_limits,label='Direct 95\% Confidence',color='red')
     # plt.plot([b*1000 for b in background_rates],mod_5sigma_limits,label='Modulation 5$\sigma$ Discovery',color='steelblue')
     plt.plot([b*1000 for b in background_rates],mod_2sigma_limits,label='Modulation 2$\sigma$ Discovery  1 kg-day',color=northcolor)
     plt.plot([b*1000 for b in background_rates],mod_2sigma_limits_kgyear,label='Modulation 2$\sigma$ Discovery 1 kg-year',color=northcolor,ls='--')
@@ -4089,8 +4089,8 @@ def plot_silicon_1e_limit_comparison(plotsig=False):
     # plt.text(0.99,0.77,'1 kg-day',fontsize=medium,color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
     plt.ylim(1e-36,1e-32)
 
-    red = mlines.Line2D([], [], color='red', label='Direct')
-    blue = mlines.Line2D([], [], color=northcolor, label='Modulation')
+    red = mlines.Line2D([], [], color='red', label='Direct 95\%')
+    blue = mlines.Line2D([], [], color=northcolor, label='Modulation 2$\sigma$')
 
     legend1 = ax.legend(handles=[red,blue],loc='lower left',fontsize=medium,frameon=False)
     ax.add_artist(legend1)
