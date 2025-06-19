@@ -1589,7 +1589,7 @@ def plot_modulation_ne_bins(mX1,mX2,sigmaE1,sigmaE2,material,FDMn,location1='SNO
     
 
 
-def getModulationAmplitudes(material,FDMn,location,fractional=False,useVerne=True,fromFile=True,verbose=False,ne=1,returnaverage=False,useQCDark=True):
+def getModulationAmplitudes(material,FDMn,location,fractional=False,useVerne=True,fromFile=True,verbose=False,ne=1,returnaverage=False,useQCDark=True,summer=False):
     from tqdm.autonotebook import tqdm
     import re
     import numpy as np
@@ -1611,7 +1611,8 @@ def getModulationAmplitudes(material,FDMn,location,fractional=False,useVerne=Tru
     #     dir_str = "LM"
     # halo_dir = f'halo_data/modulated/{halo_type}_{dir_str}'
     screenstr = '_screened' if material == 'Si' else ""
-    halo_dir = f'./{halo_type}_modulated_rates{screenstr}{qestr}_{material}/'
+    summerstr = '_summer' if summer else 'avg'
+    halo_dir = f'./{halo_type}_modulated_rates{screenstr}{qestr}_{material}_{summerstr}/'
 
 
     amplitudes = []
@@ -1649,10 +1650,10 @@ def getModulationAmplitudes(material,FDMn,location,fractional=False,useVerne=Tru
 
 
 
-def getContourData(material,FDMn,location,fractional=False,useVerne=True,fromFile=True,verbose=False,getAll=True,masses=None,sigmaEs=None,ne=1,returnaverage=False,useQCDark=True,unitize=False):
+def getContourData(material,FDMn,location,fractional=False,useVerne=True,fromFile=True,verbose=False,getAll=True,masses=None,sigmaEs=None,ne=1,returnaverage=False,useQCDark=True,unitize=False,summer=False):
     import numpy as np
     from scipy.interpolate import griddata
-    masses,cross_sections,amplitudes = getModulationAmplitudes(material,FDMn,location,fractional=fractional,useVerne=useVerne,fromFile=fromFile,verbose=verbose,ne=ne,returnaverage=returnaverage,useQCDark=useQCDark)
+    masses,cross_sections,amplitudes = getModulationAmplitudes(material,FDMn,location,fractional=fractional,useVerne=useVerne,fromFile=fromFile,verbose=verbose,ne=ne,returnaverage=returnaverage,useQCDark=useQCDark,summer=summer)
     log_masses = np.log10(masses)
     
     log_cross_sections = np.log10(cross_sections)
@@ -2881,6 +2882,635 @@ def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVern
     return 
 
 
+def plotMaterialSeasonalSignificanceComparison(fdm,loc,material='Si',plotConstraints=True,useVerne=True,fromFile=True,verbose=False,masses=None,sigmaEs=None,ne=1,shadeMFP=True,savefig=False,standardizeGrid = False,useQCDark=True,showProjection=False):
+    from tqdm.autonotebook import tqdm
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib
+    from matplotlib import colors
+
+    #Options
+
+    large = 48
+    small = 36
+    medium = 40
+    smaller = 30
+    smallest=16
+    set_default_plotting_params(fontsize=medium)
+   
+    nrows = 3
+    ncols = 2
+
+    
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=False, sharey=False,layout='constrained',figsize=(26,26))
+    ebinstr = f'{ne}' + '$e^-$ bin'
+
+    fdmstr = '$F_{\mathrm{DM}} = (\\alpha m_e/q)^2$' if fdm == 2 else '$F_{\mathrm{DM}} = 1$'
+    
+    matdit = {
+        'Si': 'Silicon',
+        "Xe": 'Xenon',
+        'Ar': "Argon"
+    }
+    fig.suptitle(f"{matdit[material]} Sensitivity at {loc} {fdmstr} ",fontsize=large,y=1.03)
+
+
+    temp_amps = []
+
+    masses_list = []
+    cs_list = []
+    famp_list = []
+    amp_list = []
+    if masses is None and sigmaEs is None:
+        getAll = True
+    else:
+        getAll = False
+
+
+       
+
+    for summer in [True,False]:
+        mini_mass_list = []
+        mini_famp_list = []
+        mini_cs_list = []
+        mini_amp_list = []
+        # for fdm in [0,2]:
+        Masses,CrossSections,FractionalAmplitudes = getContourData(material,fdm,loc,fractional=True,useVerne=useVerne,fromFile=fromFile,verbose=verbose,getAll=getAll,masses=masses,sigmaEs=sigmaEs,ne=ne,useQCDark=useQCDark,summer=summer)
+        Masses,CrossSections,Amplitudes = getContourData(material,fdm,loc,fractional=False,useVerne=useVerne,fromFile=fromFile,verbose=verbose,getAll=getAll,masses=masses,sigmaEs=sigmaEs,ne=ne,returnaverage=True,useQCDark=useQCDark,summer=summer)
+        FractionalAmplitudes[np.isnan(FractionalAmplitudes)] = 0
+        # mini_mass_list.append(Masses)
+        # mini_cs_list.append(CrossSections)
+        # mini_famp_list.append(FractionalAmplitudes)
+        # mini_amp_list.append(Amplitudes)
+        masses_list.append(Masses)
+        cs_list.append(CrossSections)
+        amp_list.append(Amplitudes)
+        famp_list.append(FractionalAmplitudes)
+
+        
+
+
+    exposure_dict = {
+        'Si': np.array([1 * nu.kg * nu.day,30 * nu.kg * nu.day,30 * nu.kg * nu.year]), #kg day, kg month, 30 kg year
+        'Xe': np.array([1 * nu.tonne * nu.day,30 * nu.tonne * nu.day ,1 * nu.tonne * nu.year]),#tonne day, tonne month, 1 tonne year
+        'Ar': np.array([1 * nu.tonne * nu.day,30 * nu.tonne * nu.day, 1 * nu.tonne * nu.year])#tonne day, tonne month, ~17.4 tonne year
+    }
+
+    time_units = {
+        'Si': [nu.kg*nu.day,nu.kg*nu.day,nu.kg*nu.year],
+        'Xe': [nu.tonne*nu.day,nu.tonne*nu.day,nu.tonne*nu.year],
+        'Ar': [nu.tonne*nu.day,nu.tonne*nu.day,nu.tonne*nu.year],
+
+    }
+    time_unit_strs = ['day','month','year']
+    exposures = exposure_dict[material]
+    for i in range(nrows):
+        exposure = exposures[-1]
+        for j in range(ncols):
+            if j == 0:
+               first_index = 0 # Summer
+               summer_str = 'Summer'
+            #    fdm = 0
+            #    fdmstr = '$F_{\mathrm{DM}} = 1$'
+            else:
+                first_index = 1 #Average
+                summer_str = 'Average'
+                # fdm = 2
+                # fdmstr = '$F_{\mathrm{DM}} = (\\alpha m_e/q)^2$'
+            # if j == 0 or j == 1:
+            #     second_index = 0 #FDM 1
+            #     fdm = 0
+            # else:
+            #     second_index = 1 #FDM q2
+            #     fdm = 2
+            current_ax = axes[i,j]
+
+           
+           
+            if material == 'Si':
+                if ne == 1:
+                    pix_1e = 1.39e-5 #e^-/pix/day
+                    background_rate = pix_1e / (3.485*1e-7) #e- /gram/day
+                    background_rate = background_rate / nu.g / nu.day
+                    # background_rate *= 1000 #e / kg/ day
+                elif ne == 2:
+                    # #snolab 2e rate
+                    exp_2e =46.61  * nu.g * nu.day
+                    # exp_2e /=1000 #kg days
+                    counts_2e = 55
+                    background_rate = counts_2e / exp_2e #e / kg /day
+                else:
+                    background_rate = 0
+
+            elif material == 'Xe':
+                #taken from https://arxiv.org/pdf/2411.15289
+                if ne == 1:
+                    background_rate = 3  / nu.kg / nu.day 
+                elif ne == 2:
+                    background_rate = 0.1 / nu.kg / nu.day 
+                elif ne == 3:
+                    background_rate = 0.02 / nu.kg / nu.day 
+                elif ne == 4:
+                    background_rate = 0.01 / nu.kg / nu.day 
+
+
+            elif material == 'Ar':
+                #values from https://arxiv.org/pdf/2407.05813
+                argon_2e_background= 0.1 #events / 0.25 *kg / day
+                argon_3e_background= 5e-3 #events / 0.25 *kg / day
+                argon_4e_background= 1e-3 #events / 0.25 *kg / day
+                if ne == 1:
+                    raise ValueError('No 1e background rate for Argon')
+                elif ne == 2:
+                    background_rate = argon_2e_background/0.25 / nu.kg / nu.day 
+                elif ne == 3:
+                    background_rate = argon_3e_background/0.25 / nu.kg / nu.day 
+                elif ne == 4:
+                    background_rate = argon_4e_background/0.25 / nu.kg / nu.day 
+
+
+
+            FractionalAmplitudes = famp_list[first_index]#[second_index]
+            Amplitudes = amp_list[first_index]#[second_index]
+
+            Significance = (FractionalAmplitudes*Amplitudes)*exposure / np.sqrt((Amplitudes + background_rate)*exposure)
+
+            Significance[np.isnan(Significance)] = 0
+
+            Significance[Significance > 5] = 5.5
+
+            Amplitudes = Significance
+
+            if masses is not None and sigmaEs is not None:
+                Amplitudes = Amplitudes.T
+
+            temp_amps.append(np.nanmax(Amplitudes))
+
+            current_ax.set_xscale('log')
+            current_ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+            current_ax.set_yscale('log')
+            if masses is not None:
+                mass_low = np.min(masses)
+                mass_high = np.max(masses)
+            else:
+                mass_low = np.min(Masses)
+                mass_high = np.max(Masses)
+            cs_low = np.min(CrossSections)
+            cs_high = np.max(CrossSections)
+            if fdm == 2:
+                cs_low = 1e-40
+                cs_high = 1e-30
+
+            xlow = mass_low
+            xhigh = mass_high
+            ylow = cs_low
+            yhigh = cs_high
+            if material == 'Si':
+                if fdm == 0:
+                    xy = (40,2e-41)
+                    xysolar = (1.5,3e-37)
+                    if ne == 1 or ne ==2:
+                        xlow = mass_low
+                        xhigh = 10
+                        yhigh = 1e-35
+                        ylow = 1e-38
+                        # xlow = xlow
+                        # xhigh = xhigh
+                        # yhigh = yhigh
+                        # ylow = ylow
+
+                    
+                elif fdm == 2:
+                    xy = (40,1e-36)
+                    xysolar = (2,9e-34)
+                    if ne == 1 or ne == 2:
+                        xlow= mass_low
+                        xhigh = 10
+
+                        yhigh=1e-33
+                        ylow=1e-37
+            
+                    
+                
+
+
+            elif material == 'Xe':
+                if fdm == 0:
+                    xy = (40,2e-41)
+                    xysolar = (2,1e-36)
+                    if ne == 1:
+                        xlow= 3
+                        xhigh = mass_high
+                        yhigh=5e-37
+                        ylow=1e-42
+                    elif ne == 2:
+                        xlow= 5
+                        xhigh = mass_high
+                        yhigh=1e-38
+                        ylow=1e-42
+
+                    elif ne == 3 or ne == 4:
+                        xlow = 10
+                        xhigh = mass_high
+                        yhigh = 1e-38
+                        ylow = 1e-42
+
+                if fdm == 2:
+                    xy = (40,1e-36)
+                    xysolar = (2,9e-34)
+                    if ne == 1:
+                        xlow= 3
+                        xhigh = mass_high
+                        yhigh=1e-34
+                        ylow=1e-38
+                    elif ne == 2:
+                        xlow= 10
+                        xhigh = mass_high
+                        yhigh=1e-34
+                        ylow=1e-38
+
+                    elif ne == 3 or ne == 4:
+                        xlow = 10
+                        xhigh = mass_high
+                        yhigh = 1e-34
+                        ylow = 1e-38
+                   
+                    
+
+            elif material == 'Ar':
+
+                if fdm == 0:
+                    xy = (40,2e-41)
+                    xysolar = (2,1e-36)
+                    if ne == 2:
+                        xlow= 10
+                        xhigh = mass_high
+                        yhigh=1e-38
+                        ylow=1e-42
+                    elif ne == 3 or ne ==4:
+                        xlow= 10
+                        xhigh = mass_high
+                        yhigh=1e-38
+                        ylow=1e-42
+
+                if fdm == 2:
+                    xy = (40,1e-36)
+                    xysolar = (2,9e-34)
+                    if ne == 2 or ne == 3:
+                        xlow= 10
+                        xhigh = mass_high
+                        yhigh=1e-32
+                        ylow=1e-38
+                    elif ne == 4:
+                        xlow= 10
+                        xhigh = mass_high
+                        yhigh = 1e-32
+                        ylow = 1e-38
+                
+
+         
+
+
+
+                # if i== 0:
+                #     yhigh = 1e-36
+                #     ylow = 1e-40
+
+
+                # elif i==1:
+                #     yhigh = 1e-36
+                #     ylow = 1e-41
+
+                # elif i==2:
+                #     yhigh=1e-36
+                #     ylow=1e-42
+                # if standardizeGrid:
+                    
+
+
+            # elif material == 'Xe' and fdm == 2 and ne == 1:
+                
+                
+                # if i ==0 :
+                #     yhigh = 1e-33
+                #     ylow = 1e-36
+
+
+                # elif i == 1:
+                #     yhigh = 1e-33
+                #     ylow = 1e-36
+
+                # elif i == 2:
+                #     yhigh=1e-34
+                #     ylow=1e-37
+
+                # if standardizeGrid:
+                #     yhigh=1e-34
+                #     ylow=1e-37
+
+            
+            # elif material == 'Xe' and fdm == 2 and ne == 2:
+                
+                
+            #     # if i== 0:
+            #     #     yhigh = 1e-36
+            #     #     ylow = 1e-40
+
+
+            #     # elif i==1:
+            #     #     yhigh = 1e-36
+            #     #     ylow = 1e-41
+
+            #     # elif i==2:
+            #     #     yhigh=1e-36
+            #     #     ylow=1e-42
+            #     # if standardizeGrid:
+                
+
+
+
+
+            
+                
+            
+
+            yhighexp = find_exp(yhigh)
+            ylowexp = find_exp(ylow)
+            # print(yhighexp,ylowexp)
+            yticks = np.arange(-50,-28,1)
+            # print(yticks)
+            yticks = np.power(10.,yticks)
+            # print(yticks)
+            n = 2
+            current_ax.set_yticks(yticks)
+            # [l.set_visible(False) for (i,l) in enumerate(current_ax.yaxis.get_ticklabels()) if i % n != 0]
+
+            current_ax.set_xlim(xlow,xhigh)
+            current_ax.set_ylim(ylow,yhigh)
+
+
+            current_ax.tick_params('x', top=True, labeltop=False)
+            current_ax.tick_params('y', right=True, labelright=False)
+            current_ax.set_xlabel('$m_\chi$ [MeV]',fontsize=small)
+            current_ax.set_ylabel('$\overline{\sigma}_e$ [cm$^2$]',fontsize=small)
+            
+            vmin = 0
+            vmax = 5
+            max_sig = np.max(Significance)
+            min_sig = np.min(Significance)
+            norm =colors.Normalize(vmin=vmin,vmax=vmax)
+            # if max_sig > 2:
+            #     levs = np.arange(0,int(max_sig),1)
+            # else:
+            levs = np.arange(0,5.5,0.5)
+            extend = 'max'
+            cmap = 'Reds'#diverging
+            original_cmap = cmap
+            cmap = modify_colormap(original_cmap,divisor=10)
+
+
+            #actual plotting
+            # if fractional:
+            #     background_filling = np.zeros_like(Amplitudes)
+            #     BF = current_ax.contourf(Masses,CrossSections,background_filling,norm=norm,cmap=cmap,extend=extend)
+            # elif not plotSignificance:
+            # background_filling = np.ones_like(Amplitudes)*1e-10
+            # BF = current_ax.contourf(Masses,CrossSections,background_filling,norm=norm,cmap=cmap,extend=extend)
+
+            CT1 =  current_ax.contourf(Masses,CrossSections,Amplitudes,levs,norm=norm,cmap=cmap,extend=extend)
+            
+            # CT1.cmap.set_under(camp(norm(vmin)))
+
+
+            # if fractional:
+            #     if max_amp < 2:
+            #         CT1.cmap.set_over(camp(norm(max_amp)))
+            #     else:
+            #         CT1.cmap.set_over(camp(norm(vmax)))
+            # else:
+            #     CT1.cmap.set_over(camp(norm(vmax)))
+
+
+            #plotting for contour labels
+            # CTFF = plt.contour(Masses,CrossSections,Amplitudes,levs,cmap=plt.get_cmap('binary'),linewidths=0)
+
+            if plotConstraints:
+                import sys
+                # sys.path.append('../../../limits/other_experiments/')
+                sys.path.append('../limits/')
+                from Constraints import plot_constraints
+                
+                xsol,ysol = plot_constraints('Solar',fdm)
+                current_ax.plot(xsol,ysol,color='black',lw=3,ls='--')
+                # upper_boundary_sol=np.ones_like(ysol)*yhigh
+                # current_ax.fill_between(xsol,ysol,upper_boundary_sol,alpha=0.3, color='grey')
+
+                x,y = plot_constraints('All',fdm)
+                current_ax.plot(x,y,color='black',lw=3)
+
+
+                from scipy.interpolate import interp1d
+                constraint_interp = interp1d(x,y,bounds_error=False,fill_value=np.nan)
+                solar_constraint_interp = interp1d(xsol,ysol,bounds_error=False,fill_value=np.nan)
+                grid = np.geomspace(xlow,xhigh,50)
+                ylower = []
+                for m in grid:
+                    ylower.append(np.nanmin(np.array([constraint_interp(m),solar_constraint_interp(m)])))
+                
+                ylower = np.array(ylower)
+
+                upper_boundary=np.ones_like(grid)*yhigh
+                current_ax.fill_between(grid,ylower,upper_boundary,alpha=0.3, color='grey')
+
+            if showProjection:
+                 if i == 2:
+                    if material == 'Si':
+                        oscura_heavy = '../sensitivity_projections/oscura_heavy.csv' #exposure 30 kg year
+                        oscura_light = '../sensitivity_projections/oscura_light.csv' #exposure 30 kg year
+                        
+                        f = oscura_heavy if fdm == 0 else oscura_light
+                    elif material == 'Ar':
+                    
+                        darkside20k_heavy = '../sensitivity_projections/Darkside20k_heavy.csv' #exposure 17.4 ton·year for one year of data
+                        darkside20k_light = '../sensitivity_projections/Darkside20k_light.csv' #exposure 17.4 ton·year for one year of data
+
+                        f = darkside20k_heavy if fdm == 0 else darkside20k_light
+                    fdata = np.loadtxt(f,delimiter=',')
+                    current_ax.plot(fdata[:,0],fdata[:,1],color='blue',lw=2,label='direct sensitivity')
+
+
+                
+
+
+
+
+
+    #         bbox=dict(
+    #     boxstyle="round",  # Shape of the box
+    #     facecolor="wheat",  # Background color
+    #     edgecolor="black",  # Border color
+    #     linewidth=1,  # Border width
+    #     alpha=0.5,  # Transparency
+    #     pad=0.5,  # Padding between text and border
+    # )     
+            import matplotlib.patches as patches
+
+            if fdm == 0:
+                box_xpos,box_ypos = 0.14,0.06
+                e_xpos,e_ypos = box_xpos,box_ypos+0.07
+                rect = patches.Rectangle((0.01, 0.02), 0.25, 0.155, linewidth=1, edgecolor='black', facecolor='white',transform = current_ax.transAxes,zorder = 2)
+            else:
+                box_xpos,box_ypos = 0.2,0.06
+                e_xpos,e_ypos = box_xpos,box_ypos+0.07
+                rect = patches.Rectangle((0.01, 0.02), 0.38, 0.155, linewidth=1, edgecolor='black', facecolor='white',transform = current_ax.transAxes,zorder = 2)
+            # xw = 0.4 if fdm == 2 else 0.25
+            
+            current_ax.add_patch(rect)
+            current_ax.text(0.95, 0.93, material,
+            horizontalalignment='center',
+            verticalalignment='center',
+            transform = current_ax.transAxes,c='Black',fontsize=medium,bbox=dict(boxstyle='square',edgecolor="black",linewidth=1,alpha=1,pad=0.2,facecolor='white'))
+            current_ax.text(box_xpos, box_ypos, fdmstr,
+            horizontalalignment='center',
+            verticalalignment='center',
+            transform = current_ax.transAxes,c='Black',fontsize=smaller,zorder=3)#,bbox=dict(boxstyle='round',edgecolor="black",linewidth=1,alpha=1,pad=0.2,facecolor='white'))
+            # current_ax.text(0.02, 0.16, fdm_str,
+            # horizontalalignment='left',
+            # verticalalignment='center', 
+            # transform = current_ax.transAxes,c='Black',fontsize=small,zorder=3)#,bbox=dict(boxstyle='round',edgecolor="black",linewidth=1,alpha=1,pad=0.2,facecolor='white'))
+
+            e_bin_str = f'{ne}' + '$e^-$ bin'
+            current_ax.text(e_xpos, e_ypos, e_bin_str,
+            horizontalalignment='center',
+            verticalalignment='center', 
+            transform = current_ax.transAxes,c='Black',fontsize=smaller,zorder=3)#,bbox=dict(boxstyle='round',edgecolor="black",linewidth=1,alpha=1,pad=0.2,facecolor='white'))
+
+            # 
+
+            # print(exp_str,exposure)
+            # print(exp_str >=1e3)
+            time_unit = time_unit_strs[i]
+            exp_str = exposures[i] / time_units[material][i]
+            exp_str = np.round(exp_str)
+            if i == 1:
+                exp_str /=30
+
+            if material=='Si':
+                mass_unit_str = 'kg'
+            else:
+                mass_unit_str = 'tonne'
+
+
+            
+
+        
+            exp_str = int(exp_str)
+            exposure_str = f'{exp_str} {mass_unit_str}-{time_unit}'
+            # if material == 'Ar' and i == 2:
+            #     exposure_str = f'17.4 tonne-years'
+
+            current_ax.text(0.98, 0.05, exposure_str,
+            horizontalalignment='right',
+            verticalalignment='center',
+            transform = current_ax.transAxes,c='Black',fontsize=small,bbox=dict(boxstyle='square',edgecolor="black",linewidth=1,alpha=1,pad=0.2,facecolor='white'))
+
+
+
+           
+
+            # current_ax.set_title(f'Modulation Significance Curves',fontsize=medium,y=1.03)
+
+
+            
+            if shadeMFP:
+                import sys
+                from tqdm.autonotebook import tqdm
+                sys.path.append('../DaMaSCUS/')
+                from MeanFreePath import Earth_Density_Layer_NU
+
+
+                mX_grid_mfp = np.geomspace(mass_low,mass_high,100)
+                sigmaE_grid_mpf = np.geomspace(cs_low,cs_high,100)
+
+                #np.arange(0.1,1500,0.1)
+                EDLNU = Earth_Density_Layer_NU()
+                r_test = 0.8*EDLNU.EarthRadius #choose mantle
+                vMax = 300 * EDLNU.km / EDLNU.sec
+
+                MFP = []
+                for s in range(len(sigmaE_grid_mpf)):
+                    MFP_small = []
+                    for m in range(len(mX_grid_mfp)):
+                        mX = mX_grid_mfp[m]*1e-3 #GeV
+                        sigmaP= sigmaE_grid_mpf[s] * (EDLNU.muXElem(mX,EDLNU.mProton) / EDLNU.muXElem(mX,EDLNU.mElectron))**2
+
+                        mfp = EDLNU.Mean_Free_Path(r_test,mX,sigmaP,vMax,fdm,doScreen=True)
+                        MFP_small.append(mfp)
+                    MFP_small = np.array(MFP_small)
+                    MFP.append(MFP_small)
+                MFP = np.array(MFP)
+
+                # shade = np.zeros_like(MFP,dtype=bool)
+                # shade[MFP < 1] = True
+                # shade[MFP>=1] = False
+                X,Y = np.meshgrid(mX_grid_mfp,sigmaE_grid_mpf)
+                shade = np.ma.masked_where(MFP > 1, MFP)
+
+                current_ax.pcolor(X, Y, shade,hatch='/',alpha=0)
+
+                
+
+            
+                # cbar.ax.set_yticklabels(['$< 10^{-6}$', '$1$', '$ > 10^6$'])
+                # cbar.ax.set_ylim(1e-6,1e6)
+                
+
+                # cbar = fig.colorbar(CT1,extend='both')
+                # # cbar.ax.set_yticklabels(['$< 10^{-6}$', '$1$', '$ > 10^6$'])
+
+            
+        
+
+
+    cax,kw = matplotlib.colorbar.make_axes([ax for ax in axes.flat])
+    # if fractional:
+    #     # max_vis_amp = np.round(np.max(temp_amps),2)
+    #     # print(max_vis_amp)
+    #     # if np.max(temp_amp) > 1:
+    #     cbar = fig.colorbar(CT1, cax=cax,extend=extend,norm=norm,**kw)
+    #         # cbar = current_ax.cax.colorbar(CT1,)
+    #         # cbar.ax.set_yticklabels(['0', '$1$', f'$>2$'])
+    #         # cbar.ax.set_ylim(0,2)
+    #         # cbar = current_ax.cax.colorbar(CT1,extend=extend,ticks=[0,max_vis_amp],norm=norm)
+          
+    #     # cbar = fig.colorbar(CT1,extend=extend,norm=norm)
+
+
+    # else:
+        # cbar = current_ax.cax.colorbar(CT1,ticks=[1e-6,1e0,1e6],extend=extend,norm=norm)
+    cbar = fig.colorbar(CT1, cax=cax,extend=extend,norm=norm,**kw)
+
+        # cbar.ax.set_yticklabels(['$< 10^{-6}$', '$1$', '$ > 10^6$'])
+        # cbar.ax.set_ylim(1e-6,1e6)
+    cbar.ax.tick_params(labelsize=large)
+    if savefig:
+        mat_str_dict = {
+            'Si': 'Silicon',
+            'Xe': 'Xenon',
+            'Ar': 'Argon',
+        }
+        matstr = mat_str_dict[material]
+        
+        savedir = f'figures/{matstr}'
+
+        tag = 'verne' if useVerne else 'damascus'
+        plt.savefig(f'{savedir}/Mod_Sensitivity_{material}_CombinedFig_{ne}ebin_loc{loc}_{tag}.jpg')
+
+    # plt.tight_layout()
+    plt.show()
+    plt.close()
+    return 
+
 
 def plotModulationFigure(fdm,fractional=False,plotConstraints=True,useVerne=True,fromFile=True,verbose=False,masses=None,sigmaEs=None,ne=1,shadeMFP=True,savefig=False,kgday=True,useQCDark=True,logfractional=True):
     from tqdm.autonotebook import tqdm
@@ -2908,7 +3538,7 @@ def plotModulationFigure(fdm,fractional=False,plotConstraints=True,useVerne=True
     # plt.rcParams['figure.figsize']=(26,26)
     # plt.rcParams['axes.formatter.use_mathtext']=True
     ncols = 2
-    nrows = 3
+    nrows =1
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=False, sharey=False,layout='constrained',figsize=(26,26))
     fracstr = "Fractional" if fractional else ""
     fdmstr = '$F_{\mathrm{DM}} = (\\alpha m_e/q)^2$' if fdm == 2 else '$F_{\mathrm{DM}} = 1$'
