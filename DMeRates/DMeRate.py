@@ -66,9 +66,9 @@ class DMeRate:
             }
  
             if QEDark:
-                form_factor_file = f'../QEDark/QEdark-python/{material}_f2.txt'
+                form_factor_file = f'../form_factors/QEDark/{material}_f2.txt'
             else:
-                form_factor_file = f'../QCDark/results/{material}_final.hdf5'
+                form_factor_file = f'../form_factors/QCDark/{material}_final.hdf5'
             self.bin_size = binsizes[material] 
 
         
@@ -136,7 +136,7 @@ class DMeRate:
 
             logkArr  = np.log(Earr / ry) / 2
             self.Earr = torch.tensor(Earr)
-            form_factor_file = f'../wimprates_mod/data/dme/{material}_dme_ionization_ff.pkl'        
+            form_factor_file = f'../form_factors/wimprates/{material}_dme_ionization_ff.pkl'        
             form_factor_file_filepath = os.path.join(self.module_dir,form_factor_file)
         
             formfactor = formFactorNoble(form_factor_file_filepath)

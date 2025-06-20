@@ -135,12 +135,16 @@ def plot_constraints(material,fdm):
         
     if material == 'All':
         if fdm == 0:
-            constraints = np.loadtxt(local_path + 'current_constraints_fdm1_migdal.csv',delimiter = ',')
+            constraints = np.loadtxt(local_path + 'current_constraints_fdm1.csv',delimiter = ',')
 
         if fdm == 2:
             constraints = np.loadtxt(local_path + 'current_constraints_fdmq2.csv',delimiter = ',')
         return constraints[0],constraints[1]
 
+    if material == 'Migdal':
+        if fdm == 0:
+            constraints = np.loadtxt(local_path + 'current_constraints_fdm1_migdal.csv',delimiter = ',')
+        return constraints[0],constraints[1]
 
 
 
