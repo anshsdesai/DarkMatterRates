@@ -4,7 +4,7 @@ DMeRates is a tool that allows for vectorized calculation of DM-electron scatter
 I wrote this to speed up rate calculations, and primarily for a study of daily modulation. You can calculate your own daily modulated rates by providing your own halo data. This code will make use of halo data in the form of a txt file with the left column being vmin (km/s), and the right column being η(vmin) (s/km).  Halo data used for the study of daily modulation due to Earth scattering (modulation paper will go here) is publicly available here (link will go here), along with instructions on how to use it. You can also use tools such as [DaMaSCUS](https://github.com/temken/DaMaSCUS) and/or [Verne](https://github.com/bradkav/verne) to generate your own halo data. 
 
 
-
+I am still working on documentation, so if you happen to see this before this code is well commented please reach out to me and I can help you with whatever you need. 
 
 ### Contents
 
