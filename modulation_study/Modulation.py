@@ -28,7 +28,7 @@ def set_default_plotting_params(fontsize=40):
     return
 
 
-def get_modulated_rates(material,mX,sigmaE,fdm,ne,useVerne=True,calcError=None,useQCDark=True,DoScreen = True,verbose = False,flat=False,dmRateObject = None):
+def get_modulated_rates(material,mX,sigmaE,fdm,ne,useVerne=True,calcError=None,useQCDark=True,DoScreen = True,verbose = False,flat=False,dmRateObject = None,summer=False):
     import os
     import torch
     import sys
@@ -46,17 +46,19 @@ def get_modulated_rates(material,mX,sigmaE,fdm,ne,useVerne=True,calcError=None,u
     else:
         integrate = False
 
-    fdm_dict = {0: "Scr", 2: "LM"}    
-    calc_method_dict = {True: "Verne", False: "Parameter_Scan"}    
+    fdm_dict = {0: "FDM1", 2: "FDMq2"}
+    
+    calc_method_dict = {True: "Verne", False: "DaMaSCUS"}    
 
     dmrates.update_crosssection(sigmaE)
 
-    halo_model = 'modulated'
+    halo_model = 'modulated' if not summer else 'summer'
+    summer_str = '' if not summer else '_summer'
 
     fdm_str = fdm_dict[fdm]
     calc_str = calc_method_dict[useVerne]
     mass_str = str(mX).replace('.','_')
-    loc_dir = f'../halo_data/modulated/{calc_str}_{fdm_str}/mDM_{mass_str}_MeV_sigmaE_{sigmaE}_cm2/'
+    loc_dir = f'../halo_data/modulated/{fdm_str}/{calc_str}{summer_str}/mDM_{mass_str}_MeV_sigmaE_{sigmaE}_cm2/'
 
     if type(ne) == int:
         ne = [ne]
@@ -102,7 +104,7 @@ def get_modulated_rates(material,mX,sigmaE,fdm,ne,useVerne=True,calcError=None,u
 
     
     
-def generate_modulated_rates(material,FDMn,useQCDark = True,useVerne=True,calcError=None,doScreen=True,overwrite=False,verbose=False,save=True):
+def generate_modulated_rates(material,FDMn,useQCDark = True,useVerne=True,calcError=None,doScreen=True,overwrite=False,verbose=False,save=True,summer=False):
     import csv
     import re
     import numpy as np
@@ -118,9 +120,15 @@ def generate_modulated_rates(material,FDMn,useQCDark = True,useVerne=True,calcEr
 
 
 
-    fdm_dict = {0: "Scr", 2: "LM"}    
-    calc_method_dict = {True: "Verne", False: "Parameter_Scan"}  
+    fdm_dict = {0: "FDM1", 2: "FDMq2"}    
 
+    calc_method_dict = {True: "Verne", False: "DaMaSCUS"}  
+    summer_str = '_summer' if summer else ''
+    fdm_str = fdm_dict[FDMn]
+    calc_str = calc_method_dict[useVerne] + summer_str
+    if summer:
+        print("WARNING: You are generating rates for summer, not for March (where vE is at average). If this is not what you meant to do, pleas turn summer to False.")
+        print("Using files in " + f'../halo_data/modulated/{fdm_str}/{calc_str}/')
     scr_dict = {True: "_screened", False: "_unscreened"}  
 
     qedict = {True: "_qcdark",False: "_qedark"}
@@ -129,22 +137,20 @@ def generate_modulated_rates(material,FDMn,useQCDark = True,useVerne=True,calcEr
 
     nes = [1,2,3,4,5,6,7,8,9,10]
 
-    halo_model = 'modulated'
     scr_str = scr_dict[doScreen] if material == 'Si' else ""
     qestr = qedict[useQCDark]
     if material != 'Si':
         qestr = ''
 
-    fdm_str = fdm_dict[FDMn]
-    calc_str = calc_method_dict[useVerne]
+    
 
 
 
-    write_dir= f'damascus_modulated_rates{scr_str}{qestr}_{material}'
+    write_dir= f'damascus_modulated_rates{scr_str}{qestr}_{material}{summer_str}'
     
 
     if useVerne:
-        write_dir= f'verne_modulated_rates{scr_str}{qestr}_{material}'
+        write_dir= f'verne_modulated_rates{scr_str}{qestr}_{material}{summer_str}'
         calcError=None
 
 
@@ -153,7 +159,7 @@ def generate_modulated_rates(material,FDMn,useQCDark = True,useVerne=True,calcEr
         os.mkdir(write_dir)
 
     module_dir = os.path.dirname(__file__)
-    halodir = os.path.join(module_dir,f'../halo_data/modulated/{calc_str}_{fdm_str}/')
+    halodir = os.path.join(module_dir,f'../halo_data/modulated/{fdm_str}/{calc_str}/')
 
     # dir = f'../halo_data/modulated/{calc_str}_{fdm_str}/'
 
@@ -181,7 +187,7 @@ def generate_modulated_rates(material,FDMn,useQCDark = True,useVerne=True,calcEr
             print(mX,sigmaE,d)
 
         try:
-            isoangles,rate_per_angle = get_modulated_rates(material,mX,sigmaE,FDMn,nes,useVerne=useVerne,calcError=calcError,useQCDark=useQCDark,DoScreen = doScreen,verbose = verbose,flat=False, dmRateObject = dmrates)
+            isoangles,rate_per_angle = get_modulated_rates(material,mX,sigmaE,FDMn,nes,useVerne=useVerne,calcError=calcError,useQCDark=useQCDark,DoScreen = doScreen,verbose = verbose,flat=False, dmRateObject = dmrates,summer=summer)
         except TypeError:
             print('continuing, since data not found')
             continue
@@ -199,7 +205,7 @@ def generate_modulated_rates(material,FDMn,useQCDark = True,useVerne=True,calcEr
                 
     return
 
-def generate_damascus_rates_with_error(ne,material,FDMn,useQCDark = True,DoScreen=True,overwrite=False,verbose=False,save=True,fit=False):
+def generate_damascus_rates_with_error(ne,material,FDMn,useQCDark = True,DoScreen=True,overwrite=False,verbose=False,save=True,fit=False,summer=False):
     import csv
     import re
     import numpy as np
@@ -215,15 +221,14 @@ def generate_damascus_rates_with_error(ne,material,FDMn,useQCDark = True,DoScree
 
 
 
-    fdm_dict = {0: "Scr", 2: "LM"}    
+    fdm_dict = {0: "FDM1", 2: "FDMq2"}    
 
     scr_dict = {True: "_screened", False: "_unscreened"}  
 
     qedict = {True: "_qcdark",False: "_qedark"}
     
-    
+    summer_str = 'summer' if summer else ''
 
-    halo_model = 'modulated'
     scr_str = scr_dict[DoScreen] if material == 'Si' else ""
     qestr = qedict[useQCDark]
     if material != 'Si':
@@ -233,9 +238,9 @@ def generate_damascus_rates_with_error(ne,material,FDMn,useQCDark = True,DoScree
 
 
 
-    write_dir= f'damascus_modulated_rates_{ne}e{scr_str}{qestr}_{material}'
+    write_dir= f'damascus_modulated_rates_{ne}e{scr_str}{qestr}_{material}{summer_str}'
     
-    write_dir_fit= f'fitted_damascus_modulated_rates_{ne}e{scr_str}{qestr}_{material}'
+    write_dir_fit= f'fitted_damascus_modulated_rates_{ne}e{scr_str}{qestr}_{material}{summer_str}'
 
 
 
@@ -246,7 +251,7 @@ def generate_damascus_rates_with_error(ne,material,FDMn,useQCDark = True,DoScree
         os.mkdir(write_dir_fit)
 
     module_dir = os.path.dirname(__file__)
-    halodir = os.path.join(module_dir,f'../halo_data/modulated/Parameter_Scan_{fdm_str}/')
+    halodir = os.path.join(module_dir,f'../halo_data/modulated/{fdm_str}/DaMaSCUS{summer_str}/')
 
 
     directories = os.listdir(halodir)
@@ -452,7 +457,7 @@ def plot_damascus_output(test_mX,FDMn,cross_section,long=True,savefig=False,cmap
     plt.figure()
 
     # mediator = "LM"
-    fdm_dict = {0: "Scr", 2: "LM"}    
+    fdm_dict = {0: "FDM1", 2: "FDMq2"}    
     mediator = fdm_dict[FDMn]
 
     mX_str = float(test_mX)
@@ -491,19 +496,17 @@ def plot_damascus_output(test_mX,FDMn,cross_section,long=True,savefig=False,cmap
     cmap = plt.get_cmap(cmap_name, 180) 
     if long:
         long_str = '_long'
-        dirend = '_cluster'
     else:
         long_str = ''
-        dirend = ''
-
-    steps = len(os.listdir(f'../halo_data/modulated/Parameter_Scan_{mediator}{dirend}/mDM_{mX_str}_MeV_sigmaE_{cross_section}_cm2{long_str}/'))
+    halo_dir = f'../halo_data/modulated/{mediator}/DaMaSCUS{long_str}/mDM_{mX_str}_MeV_sigmaE_{cross_section}_cm2{long_str}/'
+    steps = len(os.listdir(halo_dir))
     actual_angle = np.linspace(0,180,steps)
     for isoangle in range(steps):
         ai = actual_angle[isoangle]
         ai = round(ai)
         # print(isoangle,ai,cmap(ai))
 
-        fname = f'../halo_data/modulated/Parameter_Scan_{mediator}{dirend}/mDM_{mX_str}_MeV_sigmaE_{cross_section}_cm2{long_str}/DM_Eta_theta_{isoangle}.txt'
+        fname = halo_dir + f'DM_Eta_theta_{isoangle}.txt'
         # fname_DAMASCUS = f'./DaMaSCUS/results/5MeV_test_histograms/eta.{isoangle}'
         fdata = np.loadtxt(fname,delimiter='\t')
         vmin = fdata[:,0]
@@ -599,7 +602,7 @@ def plot_damascus_figure(test_mX,cross_section,long=True,savefig=False,cmap_name
     
     fig,ax = plt.subplots(1,2,figsize=(24,10))
     # mediator = "LM"
-    fdm_dict = {0: "Scr", 2: "LM"}    
+    fdm_dict = {0: "FDM1", 2: "FDMq2"}    
     
 
     mX_str = float(test_mX)
@@ -637,22 +640,22 @@ def plot_damascus_figure(test_mX,cross_section,long=True,savefig=False,cmap_name
     cmap = plt.get_cmap(cmap_name, 180) 
     if long:
         long_str = '_long'
-        dirend = '_cluster'
+        dirend = long_str
     else:
         long_str = ''
-        dirend = ''
+        dirend = long_str
 
     for i,FDMn in enumerate([0,2]):
         mediator = fdm_dict[FDMn]
-
-        steps = len(os.listdir(f'../halo_data/modulated/Parameter_Scan_{mediator}{dirend}/mDM_{mX_str}_MeV_sigmaE_{cross_section}_cm2{long_str}/'))
+        halo_dir = f'../halo_data/modulated/{mediator}/DaMaSCUS{dirend}/mDM_{mX_str}_MeV_sigmaE_{cross_section}_cm2{long_str}/'
+        steps = len(os.listdir(halo_dir))
         actual_angle = np.linspace(0,180,steps)
         for isoangle in range(steps):
             ai = actual_angle[isoangle]
             ai = round(ai)
             # print(isoangle,ai,cmap(ai))
 
-            fname = f'../halo_data/modulated/Parameter_Scan_{mediator}{dirend}/mDM_{mX_str}_MeV_sigmaE_{cross_section}_cm2{long_str}/DM_Eta_theta_{isoangle}.txt'
+            fname = halo_dir + f'DM_Eta_theta_{isoangle}.txt'
             # fname_DAMASCUS = f'./DaMaSCUS/results/5MeV_test_histograms/eta.{isoangle}'
             fdata = np.loadtxt(fname,delimiter='\t')
             vmin = fdata[:,0]
@@ -735,13 +738,13 @@ def get_damascus_output(mX,sigmaE,FDMn):
     import numpy as np
     import os
     if FDMn == 0:
-        dir_stir = 'Scr'
+        dir_stir = 'FDM1'
     else:
-        dir_stir = 'LM'
+        dir_stir = 'FDMq2'
     # mX= np.round(float(mX),2)
     mX_str = str(mX).replace('.','_')
     sigmaE = float(format(sigmaE, '.3g'))
-    ddir = f'halo_data/modulated/Parameter_Scan_{dir_stir}/mDM_{mX_str}_MeV_sigmaE_{sigmaE}_cm2/'
+    ddir = f'halo_data/modulated/{dir_stir}/DaMaSCUS/mDM_{mX_str}_MeV_sigmaE_{sigmaE}_cm2/'
     data = []
     num_angles = len(os.listdir(ddir))
     for i in range(num_angles):
@@ -753,318 +756,318 @@ def get_damascus_output(mX,sigmaE,FDMn):
     return data
 
 
-def get_raw_damascus_output(dirname,mX,sigmaE,FDMn,rhoX=0.3):
-    import os
-    from scipy.interpolate import PchipInterpolator
-    import sys
-    sys.path.append('..')
-    import DMeRates
-    import DMeRates.DMeRate as DMeRate
+# def get_raw_damascus_output(dirname,mX,sigmaE,FDMn,rhoX=0.3):
+#     import os
+#     from scipy.interpolate import PchipInterpolator
+#     import sys
+#     sys.path.append('..')
+#     import DMeRates
+#     import DMeRates.DMeRate as DMeRate
 
 
 
-    dmrates = DMeRate.DMeRate('Si')
+#     dmrates = DMeRate.DMeRate('Si')
 
-    import numpy as np
-    mX_str = float(mX)
-    mX_str = np.round(mX_str,3)
+#     import numpy as np
+#     mX_str = float(mX)
+#     mX_str = np.round(mX_str,3)
 
-    # if mass_string.is_integer():
-    #     mass_string = int(mass_string)
-    # else:
-    mX_str = str(mX_str)
-    mX_str = mX_str.replace('.',"_")
-    dmrates.update_params(220,232,544,0.3e9,1e-36)
-    vhigh = 3*(dmrates.vEarth + dmrates.vEscape)
-    vMins = np.linspace(0,vhigh,1000)
+#     # if mass_string.is_integer():
+#     #     mass_string = int(mass_string)
+#     # else:
+#     mX_str = str(mX_str)
+#     mX_str = mX_str.replace('.',"_")
+#     dmrates.update_params(220,232,544,0.3e9,1e-36)
+#     vhigh = 3*(dmrates.vEarth + dmrates.vEscape)
+#     vMins = np.linspace(0,vhigh,1000)
 
     
-    # fig,ax = plt.subplots(figsize=(15,10))
-    shm_etas = []
-    for v in vMins:
-        shm_eta = dmrates.DM_Halo.etaSHM(v)
-        shm_etas.append(shm_eta)
-    shm_etas = np.array(shm_etas)
-    shm_etas /= (nu.s / nu.km) #in s/km
+#     # fig,ax = plt.subplots(figsize=(15,10))
+#     shm_etas = []
+#     for v in vMins:
+#         shm_eta = dmrates.DM_Halo.etaSHM(v)
+#         shm_etas.append(shm_eta)
+#     shm_etas = np.array(shm_etas)
+#     shm_etas /= (nu.s / nu.km) #in s/km
 
 
     
    
-    dir = f'/Users/ansh/Local/SENSEI/DaMaSCUS/results/{dirname}_histograms/'
-    rhofile =  f'/Users/ansh/Local/SENSEI/DaMaSCUS/results/{dirname}.rho'
+#     dir = f'/Users/ansh/Local/SENSEI/DaMaSCUS/results/{dirname}_histograms/'
+#     rhofile =  f'/Users/ansh/Local/SENSEI/DaMaSCUS/results/{dirname}.rho'
 
-    km = 5.067*1e18
-    s = 1.51905*1e24
-    # print(rhofile)
-    rhofiledata = np.loadtxt(rhofile,delimiter='\t')
+#     km = 5.067*1e18
+#     s = 1.51905*1e24
+#     # print(rhofile)
+#     rhofiledata = np.loadtxt(rhofile,delimiter='\t')
     
 
-    rho = rhofiledata[:,1]
-    rho_i = rhofiledata[:,0]
-    rho_func = PchipInterpolator(rho_i,rho)
-    steps = len(os.listdir(dir)) //2
-    actual_angle = np.linspace(0,180,steps)
+#     rho = rhofiledata[:,1]
+#     rho_i = rhofiledata[:,0]
+#     rho_func = PchipInterpolator(rho_i,rho)
+#     steps = len(os.listdir(dir)) //2
+#     actual_angle = np.linspace(0,180,steps)
 
-    data = []
+#     data = []
 
-    for isoangle in range(steps):
-        ai = actual_angle[isoangle]
-        ai = round(ai)
-        # print(isoangle,ai,cmap(ai))
+#     for isoangle in range(steps):
+#         ai = actual_angle[isoangle]
+#         ai = round(ai)
+#         # print(isoangle,ai,cmap(ai))
 
-        fname = f'{dir}eta.{isoangle}'
-        # fname_DAMASCUS = f'./DaMaSCUS/results/5MeV_test_histograms/eta.{isoangle}'
-        # print(fname)
-        fdata = np.loadtxt(fname,delimiter='\t')
-        vmin = fdata[:,0]* s/km
-        eta = fdata[:,1]*km/s
-        eta*=(rho_func(ai)/rhoX)
-        filter_indices= np.where(vmin > 0)
-        vmin = vmin[filter_indices]
-        eta = eta[filter_indices]
-        #interp
+#         fname = f'{dir}eta.{isoangle}'
+#         # fname_DAMASCUS = f'./DaMaSCUS/results/5MeV_test_histograms/eta.{isoangle}'
+#         # print(fname)
+#         fdata = np.loadtxt(fname,delimiter='\t')
+#         vmin = fdata[:,0]* s/km
+#         eta = fdata[:,1]*km/s
+#         eta*=(rho_func(ai)/rhoX)
+#         filter_indices= np.where(vmin > 0)
+#         vmin = vmin[filter_indices]
+#         eta = eta[filter_indices]
+#         #interp
 
-        eta_func = PchipInterpolator(vmin,eta)
-        vmin_test = np.linspace(1,np.max(vmin),50)
-        eta_interpolated = eta_func(vmin_test)
-        data.append([vmin,eta])
+#         eta_func = PchipInterpolator(vmin,eta)
+#         vmin_test = np.linspace(1,np.max(vmin),50)
+#         eta_interpolated = eta_func(vmin_test)
+#         data.append([vmin,eta])
     
-    data.append([vMins,shm_etas])
-    return data
+#     data.append([vMins,shm_etas])
+#     return data
 
-def getVerneData(mX,sigmaE,FDMn):
-    import numpy as np
-    import os
-    if FDMn == 0:
-        dir_stir = 'Scr'
-    else:
-        dir_stir = 'LM'
-    mX= np.round(float(mX),2)
-    mX_str = str(mX).replace('.','_')
-    sigmaE = float(format(sigmaE, '.3g'))
-    ddir = f'../halo_data/modulated/Verne_{dir_stir}/mDM_{mX_str}_MeV_sigmaE_{sigmaE}_cm2/'
-    data = []
-    num_angles = len(os.listdir(ddir))
-    for i in range(num_angles):
-        file = ddir + f'DM_Eta_theta_{i}.txt'
-        filedata = np.loadtxt(file,delimiter='\t')
-        file_vmin = filedata[:,0]
-        file_eta = filedata[:,1]
-        data.append([file_vmin,file_eta])
-    return data
-
-
-
-
-def plot_raw_damascus_output(dirname,mX,sigmaE,FDMn,rhoX=0.3,logy=False,save=False):
-    import os
-    from scipy.interpolate import PchipInterpolator
-    import numpy as np
-
-
-    import matplotlib
-    import matplotlib.pyplot as plt
-    set_default_plotting_params(fontsize=12)
-    import sys
-    sys.path.append('..')
-    import DMeRates
-    import DMeRates.DMeRate as DMeRate
-
-
-
-    dmrates = DMeRate.DMeRate('Si')
+# def getVerneData(mX,sigmaE,FDMn):
+#     import numpy as np
+#     import os
+#     if FDMn == 0:
+#         dir_stir = 'Scr'
+#     else:
+#         dir_stir = 'LM'
+#     mX= np.round(float(mX),2)
+#     mX_str = str(mX).replace('.','_')
+#     sigmaE = float(format(sigmaE, '.3g'))
+#     ddir = f'../halo_data/modulated/Verne_{dir_stir}/mDM_{mX_str}_MeV_sigmaE_{sigmaE}_cm2/'
+#     data = []
+#     num_angles = len(os.listdir(ddir))
+#     for i in range(num_angles):
+#         file = ddir + f'DM_Eta_theta_{i}.txt'
+#         filedata = np.loadtxt(file,delimiter='\t')
+#         file_vmin = filedata[:,0]
+#         file_eta = filedata[:,1]
+#         data.append([file_vmin,file_eta])
+#     return data
 
 
 
 
-    golden = (1 + 5 ** 0.5) / 2
-    goldenx = 15
-    goldeny = goldenx / golden
+# def plot_raw_damascus_output(dirname,mX,sigmaE,FDMn,rhoX=0.3,logy=False,save=False):
+#     import os
+#     from scipy.interpolate import PchipInterpolator
+#     import numpy as np
 
-    plt.figure()
 
-    # mediator = "LM"
-    if FDMn == 0:
-        fdm = 0
-        mediator = "Scr"
-    elif FDMn == 2:
-        fdm = 2
-        mediator = "LM"
-    else:
-        fdm = 0
+#     import matplotlib
+#     import matplotlib.pyplot as plt
+#     set_default_plotting_params(fontsize=12)
+#     import sys
+#     sys.path.append('..')
+#     import DMeRates
+#     import DMeRates.DMeRate as DMeRate
+
+
+
+#     dmrates = DMeRate.DMeRate('Si')
+
+
+
+
+#     golden = (1 + 5 ** 0.5) / 2
+#     goldenx = 15
+#     goldeny = goldenx / golden
+
+#     plt.figure()
+
+#     # mediator = "LM"
+#     if FDMn == 0:
+#         fdm = 0
+#         mediator = "Scr"
+#     elif FDMn == 2:
+#         fdm = 2
+#         mediator = "LM"
+#     else:
+#         fdm = 0
     
-    mX_str = float(mX)
-    mX_str = np.round(mX_str,3)
+#     mX_str = float(mX)
+#     mX_str = np.round(mX_str,3)
 
-    # if mass_string.is_integer():
-    #     mass_string = int(mass_string)
-    # else:
-    mX_str = str(mX_str)
-    mX_str = mX_str.replace('.',"_")
+#     # if mass_string.is_integer():
+#     #     mass_string = int(mass_string)
+#     # else:
+#     mX_str = str(mX_str)
+#     mX_str = mX_str.replace('.',"_")
 
-    dmrates.update_params(220,232,544,0.3e9,1e-36)
-    vhigh = 3*(dmrates.vEarth + dmrates.vEscape)
-    vMins = np.linspace(0,vhigh,1000)
+#     dmrates.update_params(220,232,544,0.3e9,1e-36)
+#     vhigh = 3*(dmrates.vEarth + dmrates.vEscape)
+#     vMins = np.linspace(0,vhigh,1000)
 
-    shm_etas = []
-    for v in vMins:
-        shm_eta = dmrates.DM_Halo.etaSHM(v)
-        shm_etas.append(shm_eta)
-    shm_etas = np.array(shm_etas)
-    shm_etas /= (nu.s / nu.km) #in s/km
+#     shm_etas = []
+#     for v in vMins:
+#         shm_eta = dmrates.DM_Halo.etaSHM(v)
+#         shm_etas.append(shm_eta)
+#     shm_etas = np.array(shm_etas)
+#     shm_etas /= (nu.s / nu.km) #in s/km
 
 
-    cmap = plt.get_cmap('viridis', 180) 
+#     cmap = plt.get_cmap('viridis', 180) 
    
-    dir = f'/Users/ansh/Local/SENSEI/DaMaSCUS/results/{dirname}_histograms/'
-    rhofile =  f'/Users/ansh/Local/SENSEI/DaMaSCUS/results/{dirname}.rho'
+#     dir = f'/Users/ansh/Local/SENSEI/DaMaSCUS/results/{dirname}_histograms/'
+#     rhofile =  f'/Users/ansh/Local/SENSEI/DaMaSCUS/results/{dirname}.rho'
 
-    km = 5.067*1e18
-    s = 1.51905*1e24
-    rhofiledata = np.loadtxt(rhofile,delimiter='\t')
-    rho = rhofiledata[:,1]
-    rho_i = rhofiledata[:,0]
-    rho_func = PchipInterpolator(rho_i,rho)
-    steps = len(os.listdir(dir)) //2
-    actual_angle = np.linspace(0,180,steps)
-    for isoangle in range(steps):
-        ai = actual_angle[isoangle]
-        ai = round(ai)
-        # print(isoangle,ai,cmap(ai))
+#     km = 5.067*1e18
+#     s = 1.51905*1e24
+#     rhofiledata = np.loadtxt(rhofile,delimiter='\t')
+#     rho = rhofiledata[:,1]
+#     rho_i = rhofiledata[:,0]
+#     rho_func = PchipInterpolator(rho_i,rho)
+#     steps = len(os.listdir(dir)) //2
+#     actual_angle = np.linspace(0,180,steps)
+#     for isoangle in range(steps):
+#         ai = actual_angle[isoangle]
+#         ai = round(ai)
+#         # print(isoangle,ai,cmap(ai))
 
-        fname = f'{dir}eta.{isoangle}'
-        # fname_DAMASCUS = f'./DaMaSCUS/results/5MeV_test_histograms/eta.{isoangle}'
-        fdata = np.loadtxt(fname,delimiter='\t')
-        vmin = fdata[:,0]* s/km
-        eta = fdata[:,1]*km/s
-        eta*=(rho_func(ai)/rhoX)
-        filter_indices= np.where(vmin > 0)
-        vmin = vmin[filter_indices]
-        eta = eta[filter_indices]
-        #interp
+#         fname = f'{dir}eta.{isoangle}'
+#         # fname_DAMASCUS = f'./DaMaSCUS/results/5MeV_test_histograms/eta.{isoangle}'
+#         fdata = np.loadtxt(fname,delimiter='\t')
+#         vmin = fdata[:,0]* s/km
+#         eta = fdata[:,1]*km/s
+#         eta*=(rho_func(ai)/rhoX)
+#         filter_indices= np.where(vmin > 0)
+#         vmin = vmin[filter_indices]
+#         eta = eta[filter_indices]
+#         #interp
 
-        eta_func = PchipInterpolator(vmin,eta)
+#         eta_func = PchipInterpolator(vmin,eta)
 
 
-        plt.scatter(vmin,eta,color=cmap(ai))
+#         plt.scatter(vmin,eta,color=cmap(ai))
 
-        plt.plot(vmin,eta,color=cmap(ai))
-        vmin_test = np.linspace(1,np.max(vmin),50)
-        plt.plot(vmin_test,eta_func(vmin_test),color=cmap(ai),ls='dotted')
+#         plt.plot(vmin,eta,color=cmap(ai))
+#         vmin_test = np.linspace(1,np.max(vmin),50)
+#         plt.plot(vmin_test,eta_func(vmin_test),color=cmap(ai),ls='dotted')
 
 
 
     
-    plt.xlim([0, 700])
+#     plt.xlim([0, 700])
 
-    ax = plt.gca()
+#     ax = plt.gca()
 
-    # EE_Index = 0
-    norm = matplotlib.colors.Normalize(vmin=0, vmax=180) 
+#     # EE_Index = 0
+#     norm = matplotlib.colors.Normalize(vmin=0, vmax=180) 
 
-    sm = plt.cm.ScalarMappable(cmap=cmap,norm=norm) 
-    # for i in range(35):
-    #     ax.plot(vMins[EE_Index,:],all_etas[i][EE_Index,:],color=cmap(i))
-    # ax.set_xlim([0, 800])
-    plt.plot(vMins,shm_etas,linewidth=4,ls=':',color='black',label='SHM')
-    plt.legend(loc='lower right')
-    plt.xlabel('$v_{\mathrm{min}}$ [km/s]')
-    plt.ylabel('$\eta$ [s/km]')
-    ticks = np.linspace(0,180,19)[::2]
-    clb = plt.colorbar(sm,ax=ax,ticks=ticks)
-    clb.ax.set_title('$\Theta$\N{degree sign}',horizontalalignment='center',x=0.8)
-    # fig.suptitle('Ansh Recreation $m_{dm}$' + f' = {test_mX} σ$_E$ = {cross_section} cm$^2$',fontsize=32)
-    # title = '$m_{\chi} =$ ' + f'{test_mX} MeV' + ' $\overline{\sigma}_e = $ ' + cs_str
-    # plt.title(title)
+#     sm = plt.cm.ScalarMappable(cmap=cmap,norm=norm) 
+#     # for i in range(35):
+#     #     ax.plot(vMins[EE_Index,:],all_etas[i][EE_Index,:],color=cmap(i))
+#     # ax.set_xlim([0, 800])
+#     plt.plot(vMins,shm_etas,linewidth=4,ls=':',color='black',label='SHM')
+#     plt.legend(loc='lower right')
+#     plt.xlabel('$v_{\mathrm{min}}$ [km/s]')
+#     plt.ylabel('$\eta$ [s/km]')
+#     ticks = np.linspace(0,180,19)[::2]
+#     clb = plt.colorbar(sm,ax=ax,ticks=ticks)
+#     clb.ax.set_title('$\Theta$\N{degree sign}',horizontalalignment='center',x=0.8)
+#     # fig.suptitle('Ansh Recreation $m_{dm}$' + f' = {test_mX} σ$_E$ = {cross_section} cm$^2$',fontsize=32)
+#     # title = '$m_{\chi} =$ ' + f'{test_mX} MeV' + ' $\overline{\sigma}_e = $ ' + cs_str
+#     # plt.title(title)
 
-    if FDMn == 2:
-        plt.text(0.99,0.95,'$F_{\mathrm{DM}} = \\alpha m_e / q^2$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
-    elif FDMn == 0:
-        plt.text(0.99,0.95,'$F_{\mathrm{DM}} = 1$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
-    else:
-        plt.text(0.99,0.95,'$F_{\mathrm{DM}} = None$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
-    plt.text(0.99,0.87,'$\overline{\sigma}_{e} =$ ' + str(sigmaE),color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
-    plt.text(0.99,0.80,'$m_\chi=$ ' + f'{mX} MeV',color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
+#     if FDMn == 2:
+#         plt.text(0.99,0.95,'$F_{\mathrm{DM}} = \\alpha m_e / q^2$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
+#     elif FDMn == 0:
+#         plt.text(0.99,0.95,'$F_{\mathrm{DM}} = 1$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
+#     else:
+#         plt.text(0.99,0.95,'$F_{\mathrm{DM}} = None$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
+#     plt.text(0.99,0.87,'$\overline{\sigma}_{e} =$ ' + str(sigmaE),color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
+#     plt.text(0.99,0.80,'$m_\chi=$ ' + f'{mX} MeV',color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
 
-    if logy:
-        plt.yscale('log')
-    if not save:
-        plt.show()
-    else:
-        plt.savefig(f'plotting/mX{mX}_sigmaE{sigmaE}_FDMn{FDMn}_raw_damascus_eta.jpg')
-    plt.close()
-    return
+#     if logy:
+#         plt.yscale('log')
+#     if not save:
+#         plt.show()
+#     else:
+#         plt.savefig(f'plotting/mX{mX}_sigmaE{sigmaE}_FDMn{FDMn}_raw_damascus_eta.jpg')
+#     plt.close()
+#     return
 
 
 
-def point_checking(mX,sigmaE,FDMn,save=False,skipVerne=False,ne=1,useQCDark=True):
+# def point_checking(mX,sigmaE,FDMn,save=False,skipVerne=False,ne=1,useQCDark=True):
     
     
-    import matplotlib
-    import matplotlib.pyplot as plt
+#     import matplotlib
+#     import matplotlib.pyplot as plt
 
-    import numpy as np
-    import sys
-    sys.path.append('..')
-    import DMeRates
-    import DMeRates.DMeRate as DMeRate
+#     import numpy as np
+#     import sys
+#     sys.path.append('..')
+#     import DMeRates
+#     import DMeRates.DMeRate as DMeRate
 
     
 
-    #font sizes
-    small = 30
-    smaller = 24
-    medium = 36
-    large = 40
+#     #font sizes
+#     small = 30
+#     smaller = 24
+#     medium = 36
+#     large = 40
 
-    set_default_plotting_params(fontsmall=medium)
+#     set_default_plotting_params(fontsmall=medium)
     
 
 
-    golden = (1 + 5 ** 0.5) / 2
-    goldenx = 15
-    goldeny = goldenx / golden
+#     golden = (1 + 5 ** 0.5) / 2
+#     goldenx = 15
+#     goldeny = goldenx / golden
 
 
 
-    sigmaP = sigmaE_to_sigmaP(sigmaE,mX)
-    sigmaP = float(format(sigmaP, '.3g')) 
-    mX = np.round(float(mX),3)
-    mX_str = str(mX).replace('.','_')
+#     sigmaP = sigmaE_to_sigmaP(sigmaE,mX)
+#     sigmaP = float(format(sigmaP, '.3g')) 
+#     mX = np.round(float(mX),3)
+#     mX_str = str(mX).replace('.','_')
 
 
-    fig,ax = plt.subplots(2,3,figsize=(36,24))
-    fig.delaxes(ax[1,2]) # The indexing is zero-based here
-    name = f'mX{mX_str}_sigma{sigmaP}_fdm{FDMn}.cfg'
-    damascus_found  = True
-    try:
-        damascus_output_data = get_raw_damascus_output(name,mX,sigmaE,FDMn,rhoX=0.3)
-    except:
-        try:
-            damascus_output_data = get_damascus_output(mX,sigmaE,FDMn)
-        except:
-            damascus_found = False
-            print('No Verne Data found')
-    # shm = damascus_output_data[-1]
-    if not skipVerne:
-        verne_data = getVerneData(mX,sigmaE,FDMn)
+#     fig,ax = plt.subplots(2,3,figsize=(36,24))
+#     fig.delaxes(ax[1,2]) # The indexing is zero-based here
+#     name = f'mX{mX_str}_sigma{sigmaP}_fdm{FDMn}.cfg'
+#     damascus_found  = True
+#     try:
+#         damascus_output_data = get_raw_damascus_output(name,mX,sigmaE,FDMn,rhoX=0.3)
+#     except:
+#         try:
+#             damascus_output_data = get_damascus_output(mX,sigmaE,FDMn)
+#         except:
+#             damascus_found = False
+#             print('No Verne Data found')
+#     # shm = damascus_output_data[-1]
+#     if not skipVerne:
+#         verne_data = getVerneData(mX,sigmaE,FDMn)
 
 
-    cmap = plt.get_cmap('viridis', 180) 
-    norm = matplotlib.colors.Normalize(vmin=0, vmax=180) 
-    sm = plt.cm.ScalarMappable(cmap=cmap,norm=norm) 
-    # from QEDark.QEDarkConstants import lightSpeed
-    # vmins = np.linspace(0,800,100)
-    # imb_etas  =eta_SHM(vmins*1000/lightSpeed)
-    if damascus_found:
+#     cmap = plt.get_cmap('viridis', 180) 
+#     norm = matplotlib.colors.Normalize(vmin=0, vmax=180) 
+#     sm = plt.cm.ScalarMappable(cmap=cmap,norm=norm) 
+#     # from QEDark.QEDarkConstants import lightSpeed
+#     # vmins = np.linspace(0,800,100)
+#     # imb_etas  =eta_SHM(vmins*1000/lightSpeed)
+#     if damascus_found:
 
-        num_angles = len(damascus_output_data) - 1
-        isoangles = np.linspace(0,180,num_angles)
-        for i in range(num_angles):
-            ai =int(np.round(isoangles[i]))
-            vmin = np.array(damascus_output_data[i][0])
-            eta = np.array(damascus_output_data[i][1])
-            ax[1,0].plot(vmin,eta,color=cmap(ai))
+#         num_angles = len(damascus_output_data) - 1
+#         isoangles = np.linspace(0,180,num_angles)
+#         for i in range(num_angles):
+#             ai =int(np.round(isoangles[i]))
+#             vmin = np.array(damascus_output_data[i][0])
+#             eta = np.array(damascus_output_data[i][1])
+#             ax[1,0].plot(vmin,eta,color=cmap(ai))
 
 
         
@@ -1072,189 +1075,189 @@ def point_checking(mX,sigmaE,FDMn,save=False,skipVerne=False,ne=1,useQCDark=True
         
 
 
-        # ax[1,0].plot(vmins,imb_etas,linewidth=4,ls=':',color='black',label='SHM')
-        ax[1,0].legend(loc='lower right',fontsize=small)
-    ax[1,0].set_xlabel('$v_{\mathrm{min}}$ [km/s]')
-    ax[1,0].set_ylabel('$\eta$ [s/km]')
-    ax[1,0].set_title("DaMaSCUS Eta Distribution")
-    ticks = np.linspace(0,180,19)[::2]
-    clb = plt.colorbar(sm,ax=ax[1,0],ticks=ticks)
-    clb.ax.set_title('$\Theta$\N{degree sign}',horizontalalignment='center',x=0.8)
+#         # ax[1,0].plot(vmins,imb_etas,linewidth=4,ls=':',color='black',label='SHM')
+#         ax[1,0].legend(loc='lower right',fontsize=small)
+#     ax[1,0].set_xlabel('$v_{\mathrm{min}}$ [km/s]')
+#     ax[1,0].set_ylabel('$\eta$ [s/km]')
+#     ax[1,0].set_title("DaMaSCUS Eta Distribution")
+#     ticks = np.linspace(0,180,19)[::2]
+#     clb = plt.colorbar(sm,ax=ax[1,0],ticks=ticks)
+#     clb.ax.set_title('$\Theta$\N{degree sign}',horizontalalignment='center',x=0.8)
 
 
 
-    if FDMn == 2:
-        ax[1,0].text(0.99,0.95,'$F_{\mathrm{DM}} = \\alpha m_e / q^2$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,0].transAxes)
-    elif FDMn == 0:
-        ax[1,0].text(0.99,0.95,'$F_{\mathrm{DM}} = 1$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,0].transAxes)
-    else:
-        ax[1,0].text(0.99,0.95,'$F_{\mathrm{DM}} = None$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,0].transAxes)
-    ax[1,0].text(0.99,0.87,'$\overline{\sigma}_{e} =$ ' + str(sigmaE),color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,0].transAxes)
-    ax[1,0].text(0.99,0.80,'$m_\chi=$ ' + f'{mX} MeV',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,0].transAxes)
+#     if FDMn == 2:
+#         ax[1,0].text(0.99,0.95,'$F_{\mathrm{DM}} = \\alpha m_e / q^2$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,0].transAxes)
+#     elif FDMn == 0:
+#         ax[1,0].text(0.99,0.95,'$F_{\mathrm{DM}} = 1$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,0].transAxes)
+#     else:
+#         ax[1,0].text(0.99,0.95,'$F_{\mathrm{DM}} = None$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,0].transAxes)
+#     ax[1,0].text(0.99,0.87,'$\overline{\sigma}_{e} =$ ' + str(sigmaE),color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,0].transAxes)
+#     ax[1,0].text(0.99,0.80,'$m_\chi=$ ' + f'{mX} MeV',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,0].transAxes)
 
 
 
-    if not skipVerne:
-        num_angles = len(verne_data)
-        isoangles = np.linspace(0,180,num_angles)
-        for i in range(num_angles):
-            ai =int(np.round(isoangles[i]))
-            vmin = np.array(verne_data[i][0])
-            eta = np.array(verne_data[i][1])
-            ax[1,1].plot(vmin,eta,color=cmap(ai))
+#     if not skipVerne:
+#         num_angles = len(verne_data)
+#         isoangles = np.linspace(0,180,num_angles)
+#         for i in range(num_angles):
+#             ai =int(np.round(isoangles[i]))
+#             vmin = np.array(verne_data[i][0])
+#             eta = np.array(verne_data[i][1])
+#             ax[1,1].plot(vmin,eta,color=cmap(ai))
 
-        # ax[1,1].plot(vmins,imb_etas,linewidth=4,ls=':',color='black',label='SHM')
-        ax[1,1].legend(loc='lower right',fontsize=small)
-        ax[1,1].set_xlabel('$v_{\mathrm{min}}$ [km/s]')
-        ax[1,1].set_ylabel('$\eta$ [s/km]')
-        ax[1,1].set_title("Verne Eta Distribution")
-        ticks = np.linspace(0,180,19)[::2]
-        clb = plt.colorbar(sm,ax=ax[1,1],ticks=ticks)
-        clb.ax.set_title('$\Theta$\N{degree sign}',horizontalalignment='center',x=0.8)
-
-
-        if FDMn == 2:
-            ax[1,1].text(0.99,0.95,'$F_{\mathrm{DM}} = \\alpha m_e / q^2$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,1].transAxes)
-        elif FDMn == 0:
-            ax[1,1].text(0.99,0.95,'$F_{\mathrm{DM}} = 1$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,1].transAxes)
-        else:
-            ax[1,1].text(0.99,0.95,'$F_{\mathrm{DM}} = None$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,1].transAxes)
-        ax[1,1].text(0.99,0.87,'$\overline{\sigma}_{e} =$ ' + str(sigmaE),color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,1].transAxes)
-        ax[1,1].text(0.99,0.80,'$m_\chi=$ ' + f'{mX} MeV',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,1].transAxes)
+#         # ax[1,1].plot(vmins,imb_etas,linewidth=4,ls=':',color='black',label='SHM')
+#         ax[1,1].legend(loc='lower right',fontsize=small)
+#         ax[1,1].set_xlabel('$v_{\mathrm{min}}$ [km/s]')
+#         ax[1,1].set_ylabel('$\eta$ [s/km]')
+#         ax[1,1].set_title("Verne Eta Distribution")
+#         ticks = np.linspace(0,180,19)[::2]
+#         clb = plt.colorbar(sm,ax=ax[1,1],ticks=ticks)
+#         clb.ax.set_title('$\Theta$\N{degree sign}',horizontalalignment='center',x=0.8)
 
 
+#         if FDMn == 2:
+#             ax[1,1].text(0.99,0.95,'$F_{\mathrm{DM}} = \\alpha m_e / q^2$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,1].transAxes)
+#         elif FDMn == 0:
+#             ax[1,1].text(0.99,0.95,'$F_{\mathrm{DM}} = 1$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,1].transAxes)
+#         else:
+#             ax[1,1].text(0.99,0.95,'$F_{\mathrm{DM}} = None$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,1].transAxes)
+#         ax[1,1].text(0.99,0.87,'$\overline{\sigma}_{e} =$ ' + str(sigmaE),color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,1].transAxes)
+#         ax[1,1].text(0.99,0.80,'$m_\chi=$ ' + f'{mX} MeV',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,1].transAxes)
 
 
 
 
-    materials = ['Si', 'Xe', 'Ar']
-    for j,mat in enumerate(materials):
-        plot_ax = ax[0,j]
-        angles,rate_high = get_modulated_rates(mat,mX,sigmaE,FDMn,useVerne=False,calcError="High",ne=ne,useQCDark=useQCDark) 
-        angles,rate_low = get_modulated_rates(mat,mX,sigmaE,FDMn,useVerne=False,calcError="Low",ne=ne,useQCDark=useQCDark) 
+
+
+#     materials = ['Si', 'Xe', 'Ar']
+#     for j,mat in enumerate(materials):
+#         plot_ax = ax[0,j]
+#         angles,rate_high = get_modulated_rates(mat,mX,sigmaE,FDMn,useVerne=False,calcError="High",ne=ne,useQCDark=useQCDark) 
+#         angles,rate_low = get_modulated_rates(mat,mX,sigmaE,FDMn,useVerne=False,calcError="Low",ne=ne,useQCDark=useQCDark) 
         
-        angles,rate = get_modulated_rates(mat,mX,sigmaE,FDMn,useVerne=False,calcError=None,ne=ne,useQCDark=useQCDark) * nu.kg * nu.day
-        if not skipVerne:
-            angles_v,rate_verne = get_modulated_rates(mat,np.round(mX,2),sigmaE,FDMn,useVerne=True,calcError=None,ne=ne,useQCDark=useQCDark) * nu.kg * nu.day
+#         angles,rate = get_modulated_rates(mat,mX,sigmaE,FDMn,useVerne=False,calcError=None,ne=ne,useQCDark=useQCDark) * nu.kg * nu.day
+#         if not skipVerne:
+#             angles_v,rate_verne = get_modulated_rates(mat,np.round(mX,2),sigmaE,FDMn,useVerne=True,calcError=None,ne=ne,useQCDark=useQCDark) * nu.kg * nu.day
 
-        rate_high*= nu.kg * nu.day
-        rate_low *= nu.kg * nu.day
-        rate_verne*= nu.kg * nu.day
-        rate*= nu.kg * nu.day
+#         rate_high*= nu.kg * nu.day
+#         rate_low *= nu.kg * nu.day
+#         rate_verne*= nu.kg * nu.day
+#         rate*= nu.kg * nu.day
 
 
-        rate_err = rate_high - rate
+#         rate_err = rate_high - rate
             
-        if useQCDark:
-            dmrates = DMeRate.DMeRate(mat)
-            integrate = True
-        else:
-            dmrates = DMeRate.DMeRate(mat,QEDark=True)
-            integrate = False
-        dmrates.update_crosssection(sigmaE)
+#         if useQCDark:
+#             dmrates = DMeRate.DMeRate(mat)
+#             integrate = True
+#         else:
+#             dmrates = DMeRate.DMeRate(mat,QEDark=True)
+#             integrate = False
+#         dmrates.update_crosssection(sigmaE)
 
-        dmrates.update_params(238,250,544,0.3e9,sigmaE)
+#         dmrates.update_params(238,250,544,0.3e9,sigmaE)
 
-        result_flat = dmrates.calculate_rates(mX,'shm',FDMn,ne,integrate=integrate,DoScreen=True,isoangle=None,useVerne=False) * nu.kg *nu.day
+#         result_flat = dmrates.calculate_rates(mX,'shm',FDMn,ne,integrate=integrate,DoScreen=True,isoangle=None,useVerne=False) * nu.kg *nu.day
 
     
-        # kg_year = float(base_result)
-        # g_year = kg_year / 1000
-        # g_day = g_year * (1/365)
-        base_result = np.ones_like(angles) * result_flat
+#         # kg_year = float(base_result)
+#         # g_year = kg_year / 1000
+#         # g_day = g_year * (1/365)
+#         base_result = np.ones_like(angles) * result_flat
         
 
 
-        try:
-            angle_grid,fit_vector,parameters,error = fitted_rates(angles,rate,rate_err)
-        except ValueError:
-            angle_grid,fit_vector,parameters,error = fitted_rates(angles,rate,rate_err,linear=True)
-        fit = fit_vector[0]
-        fit_upper = fit_vector[1]
-        fit_lower = fit_vector[2]
+#         try:
+#             angle_grid,fit_vector,parameters,error = fitted_rates(angles,rate,rate_err)
+#         except ValueError:
+#             angle_grid,fit_vector,parameters,error = fitted_rates(angles,rate,rate_err,linear=True)
+#         fit = fit_vector[0]
+#         fit_upper = fit_vector[1]
+#         fit_lower = fit_vector[2]
 
-        plot_ax.plot(angle_grid,fit,color='red',label="Fit")
-        plot_ax.fill_between(angle_grid,fit_lower,fit_upper,color='red',label="Fit Uncertainty",alpha=0.3)
+#         plot_ax.plot(angle_grid,fit,color='red',label="Fit")
+#         plot_ax.fill_between(angle_grid,fit_lower,fit_upper,color='red',label="Fit Uncertainty",alpha=0.3)
         
-        if len(parameters) > 3:
-            inflection = parameters[1]
-            inflection_err = error[1]
-            plot_ax.axvspan(inflection-inflection_err,inflection+inflection_err,alpha=0.3,label="Inflection band")
-            fit_type = fit_vector[-1]
+#         if len(parameters) > 3:
+#             inflection = parameters[1]
+#             inflection_err = error[1]
+#             plot_ax.axvspan(inflection-inflection_err,inflection+inflection_err,alpha=0.3,label="Inflection band")
+#             fit_type = fit_vector[-1]
 
-            amp = (np.max(fit) - np.min(fit)) / 2
-            frac_amp = amp / np.mean(fit)
-            frac_amp = np.round(frac_amp,2)
-            amp = np.round(amp,2)
-            plot_ax.text(0.03, 0.25, f'frac amp = {frac_amp}, amp = {amp}',
-        horizontalalignment='left',
-        verticalalignment='center',
-        transform =plot_ax.transAxes,c='blue',fontsize=smaller)
+#             amp = (np.max(fit) - np.min(fit)) / 2
+#             frac_amp = amp / np.mean(fit)
+#             frac_amp = np.round(frac_amp,2)
+#             amp = np.round(amp,2)
+#             plot_ax.text(0.03, 0.25, f'frac amp = {frac_amp}, amp = {amp}',
+#         horizontalalignment='left',
+#         verticalalignment='center',
+#         transform =plot_ax.transAxes,c='blue',fontsize=smaller)
 
 
-        else: #fit failed, returned a linear regression
-            slope = parameters[0]
-            intercept = parameters[1]
-            r = parameters[2]
-            r_squared = r**2
-            p = error[0]
-            std_err = error[1]
-            intercept_stderr = error[2]
+#         else: #fit failed, returned a linear regression
+#             slope = parameters[0]
+#             intercept = parameters[1]
+#             r = parameters[2]
+#             r_squared = r**2
+#             p = error[0]
+#             std_err = error[1]
+#             intercept_stderr = error[2]
             
-            fit_type = 'Linear'
+#             fit_type = 'Linear'
 
-        round_values = []
-        mse = fit_vector[3]
-        rmse = fit_vector[4]
-        ssr = fit_vector[5]
-        # [linear_fit,linear_fit_upper,linear_fit_lower,mse_linear,rmse_linear,ssr_linear]
-        # mse_fit = np.mean((rate - fit)**2)
-        # rmse_fit = np.sqrt(mse_fit)
+#         round_values = []
+#         mse = fit_vector[3]
+#         rmse = fit_vector[4]
+#         ssr = fit_vector[5]
+#         # [linear_fit,linear_fit_upper,linear_fit_lower,mse_linear,rmse_linear,ssr_linear]
+#         # mse_fit = np.mean((rate - fit)**2)
+#         # rmse_fit = np.sqrt(mse_fit)
         
-        # ssr_fit =  ((rate - fit) ** 2).sum()
+#         # ssr_fit =  ((rate - fit) ** 2).sum()
         
-        for err in [ssr,mse,rmse]:
-            if err > 1:
-                round_values.append(1)
-            else:
-                round_values.append(5)
+#         for err in [ssr,mse,rmse]:
+#             if err > 1:
+#                 round_values.append(1)
+#             else:
+#                 round_values.append(5)
 
 
-        plot_ax.text(0.03, 0.03, f'{fit_type} SSR = {np.round(ssr,int(round_values[0]))} MSE = {np.round(mse,int(round_values[1]))} RMSE = {np.round(rmse,int(round_values[2]))}',
-        horizontalalignment='left',
-        verticalalignment='center',
-        transform =plot_ax.transAxes,c='red',fontsize=smaller)
+#         plot_ax.text(0.03, 0.03, f'{fit_type} SSR = {np.round(ssr,int(round_values[0]))} MSE = {np.round(mse,int(round_values[1]))} RMSE = {np.round(rmse,int(round_values[2]))}',
+#         horizontalalignment='left',
+#         verticalalignment='center',
+#         transform =plot_ax.transAxes,c='red',fontsize=smaller)
 
 
 
 
 
-        # print("Si")
-        # print(len(angles),len(rate))
+#         # print("Si")
+#         # print(len(angles),len(rate))
 
-        plot_ax.errorbar(angles,rate,yerr=rate_err,label="Uncertainty",linestyle='')
-        plot_ax.scatter(angles,rate,label='Data')
-        plot_ax.plot(angles,base_result,color='green',label="No Modulation")  
-        if not skipVerne:   
-            plot_ax.plot(angles_v,rate_verne,label='Verne',ls='--')
+#         plot_ax.errorbar(angles,rate,yerr=rate_err,label="Uncertainty",linestyle='')
+#         plot_ax.scatter(angles,rate,label='Data')
+#         plot_ax.plot(angles,base_result,color='green',label="No Modulation")  
+#         if not skipVerne:   
+#             plot_ax.plot(angles_v,rate_verne,label='Verne',ls='--')
 
-        if FDMn == 0:
-            plot_ax.set_title(f"Heavy Mediator {materials[j]} {ne} e$^-$")
-        elif FDMn == 2:
-            plot_ax.set_title(f"Light Mediator {materials[j]} {ne} e$^-$")
-        plot_ax.set_ylabel('Rate [events/g/day]')
-        plot_ax.set_xlabel('Isoangle')
-        plot_ax.set_xlim(0,180)
-        plot_ax.set_xticks(np.linspace(0,180,19)[::2])
-        plot_ax.legend(fontsize=smaller,loc='upper right')
+#         if FDMn == 0:
+#             plot_ax.set_title(f"Heavy Mediator {materials[j]} {ne} e$^-$")
+#         elif FDMn == 2:
+#             plot_ax.set_title(f"Light Mediator {materials[j]} {ne} e$^-$")
+#         plot_ax.set_ylabel('Rate [events/g/day]')
+#         plot_ax.set_xlabel('Isoangle')
+#         plot_ax.set_xlim(0,180)
+#         plot_ax.set_xticks(np.linspace(0,180,19)[::2])
+#         plot_ax.legend(fontsize=smaller,loc='upper right')
 
-    if not save:
-        plt.show()
-    else:
-        plt.savefig(f'plotting/{mX_str}mX_{sigmaE}cm2_FDMn{FDMn}_ratechecking.jpg')
-    plt.close()
+#     if not save:
+#         plt.show()
+#     else:
+#         plt.savefig(f'plotting/{mX_str}mX_{sigmaE}cm2_FDMn{FDMn}_ratechecking.jpg')
+#     plt.close()
 
-    return 
+#     return 
     
     
 
@@ -1349,9 +1352,9 @@ def get_amplitude(mX,sigmaE,FDMn,material,min_angle,max_angle,ne=1,fractional=Fa
         # mass_str = str(np.round(mX,2)).replace('.','_')
         mass_str = str(mX).replace('.','_')
         screenstr = '_screened' if material == 'Si' else ""
-        summerstr = 'summer' if summer else 'avg'
+        summerstr = '_summer' if summer else ''
 
-        file = f'./{type_str}_modulated_rates{screenstr}{qestr}_{material}_{summerstr}/mX_{mass_str}_MeV_sigmaE_{sigmaE}_FDM{FDMn}.csv'
+        file = f'./{type_str}_modulated_rates{screenstr}{qestr}_{material}{summerstr}/mX_{mass_str}_MeV_sigmaE_{sigmaE}_FDM{FDMn}.csv'
         
 
         fdata = np.loadtxt(file,delimiter=',')
@@ -1369,9 +1372,9 @@ def get_amplitude(mX,sigmaE,FDMn,material,min_angle,max_angle,ne=1,fractional=Fa
 
 
     else:
-        isoangles,rate = get_modulated_rates(material,mX,sigmaE,FDMn,ne=ne,useVerne=useVerne,calcError=None,useQCDark=useQCDark)
+        isoangles,rate = get_modulated_rates(material,mX,sigmaE,FDMn,ne=ne,useVerne=useVerne,calcError=None,useQCDark=useQCDark,summer=summer)
         if not useVerne:
-            isoangles_h,rate_high = get_modulated_rates(material,mX,sigmaE,FDMn,ne=ne,useVerne=useVerne,calcError='High')
+            isoangles_h,rate_high = get_modulated_rates(material,mX,sigmaE,FDMn,ne=ne,useVerne=useVerne,calcError='High',summer=summer)
                 
                 
 
@@ -1615,9 +1618,9 @@ def getModulationAmplitudes(material,FDMn,location,fractional=False,useVerne=Tru
     #     dir_str = "LM"
     # halo_dir = f'halo_data/modulated/{halo_type}_{dir_str}'
     screenstr = '_screened' if material == 'Si' else ""
-    summerstr = 'summer' if summer else 'avg'
+    summerstr = '_summer' if summer else ''
     
-    halo_dir = f'./{halo_type}_modulated_rates{screenstr}{qestr}_{material}_{summerstr}/'
+    halo_dir = f'./{halo_type}_modulated_rates{screenstr}{qestr}_{material}{summerstr}/'
 
 
     amplitudes = []
@@ -2429,7 +2432,7 @@ def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVern
                 mass_high = np.max(masses)
             else:
                 mass_low = np.min(Masses)
-                mass_high = np.max(Masses)
+                mass_high = 1000 #np.max(Masses)
             cs_low = np.min(CrossSections)
             cs_high = np.max(CrossSections)
             if fdm == 2:
@@ -3608,7 +3611,7 @@ def plotModulationFigure(fdm,fractional=False,plotConstraints=True,useVerne=True
                 mass_high = np.max(masses)
             else:
                 mass_low = np.min(Masses)#0.6
-                mass_high =np.max(Masses) #1000
+                mass_high = 1000 #np.max(Masses) #1000
 
 
 
@@ -3915,7 +3918,7 @@ def plotModulationFigure(fdm,fractional=False,plotConstraints=True,useVerne=True
 
         savedir = f'figures/Combined/'
         summerstr = '_summer' if summer else ''
-        plt.savefig(f'{savedir}/{frac_str}Mod_Amplitude_CombinedFig_FDM{fdm}{summerstr}.png')
+        plt.savefig(f'{savedir}/{frac_str}Mod_Amplitude_CombinedFig_FDM{fdm}{summerstr}.jpg')
 
     # plt.tight_layout()
     

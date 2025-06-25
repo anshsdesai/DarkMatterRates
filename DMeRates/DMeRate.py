@@ -380,29 +380,23 @@ class DMeRate:
             sigmaE = float(format(self.cross_section / nu.cm**2, '.3g'))
             sigmaE_str = str(sigmaE)
             # sigmaE_str.replace('.',"_")
-            if FDMn == 0:
-                    fdm_str = 'Scr'
-            else:
-                fdm_str = 'LM'
-
-            halo_prefix = '../halo_data/modulated/'
+            fdm_str = 'FDM1' if FDMn ==0 else 'FDMq2'
+            summer_str ='_summer' if halo_model == 'summer' else '' #only works for Verne
+       
+            halo_prefix = f'../halo_data/modulated/{fdm_str}/'
 
             halo_dir_prefix = os.path.join(self.module_dir,halo_prefix) 
             if useVerne:
-                dir = halo_dir_prefix + f'Verne_{fdm_str}/'
-            elif halo_model =='winter':
-                #note that these only work for mX = 0.6 and sigmaE = 2.1182*10^-31
-                dir = halo_dir_prefix + f'December_mX_0_6_sigma_1e-30_{fdm_str}/'
-            elif halo_model =='summer':
-                dir = halo_dir_prefix + f'June_mX_0_6_sigma_1e-30_{fdm_str}/'
-            else:
-                dir = halo_dir_prefix + f'Parameter_Scan_{fdm_str}/'
+                dir = halo_dir_prefix + f'Verne{summer_str}/'
             
-            if 'summer' in halo_model or 'winter' in halo_model: 
-                file = f'{dir}DM_Eta_theta_{isoangle}.txt'
-                
             else:
-                file = f'{dir}mDM_{mass_string}_MeV_sigmaE_{sigmaE_str}_cm2/DM_Eta_theta_{isoangle}.txt'
+                dir = halo_dir_prefix + f'DaMaSCUS/'
+            
+            # if 'summer' in halo_model or 'winter' in halo_model: 
+            #     file = f'{dir}DM_Eta_theta_{isoangle}.txt'
+                
+            # else:
+            file = f'{dir}mDM_{mass_string}_MeV_sigmaE_{sigmaE_str}_cm2/DM_Eta_theta_{isoangle}.txt'
             
             # print(f"Using Halo Data from: {file}")
             if not os.path.isfile(file):
