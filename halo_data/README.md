@@ -4,8 +4,8 @@ The file will be named according to the halo parameters used.
 
 If you want to perform the modulation study, please copy the "modulated" folder from our public data release [link here] here in this directory. 
 
-Once you do so, this folder should look somethiing like
-
+Once you do so, this folder should look something like
+```
 - halo_data
   - modulated/
     - FDM1
@@ -15,4 +15,4 @@ Once you do so, this folder should look somethiing like
       - DaMaSCUS
       - Verne
   - shm_v0238.0_vE250.2_vEsc544_rhoX0.3.txt
-  
+```
