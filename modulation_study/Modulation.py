@@ -1,6 +1,7 @@
 import numericalunits as nu
 
-
+#This contains all plotting/analysis code used for the modulation study we conducted.
+#For all relevant figures please see the modulation_figures.ipynb notebook. 
 northcolor='#2E88D1'
 southcolor='#D1772E'
 
@@ -451,24 +452,16 @@ def plot_damascus_output(test_mX,FDMn,cross_section,long=True,savefig=False,cmap
     import matplotlib
     set_default_plotting_params()
 
-
-
-    
     plt.figure()
 
-    # mediator = "LM"
     fdm_dict = {0: "FDM1", 2: "FDMq2"}    
     mediator = fdm_dict[FDMn]
 
     mX_str = float(test_mX)
     mX_str = np.round(mX_str,3)
 
-    # if mass_string.is_integer():
-    #     mass_string = int(mass_string)
-    # else:
     mX_str = str(mX_str)
     mX_str = mX_str.replace('.',"_")
-    # QE_Modulated_Halo = QEDark()
     import sys
     sys.path.append('..')
     import DMeRates
@@ -484,7 +477,6 @@ def plot_damascus_output(test_mX,FDMn,cross_section,long=True,savefig=False,cmap
     vMins = np.linspace(0,vhigh,1000)
 
     
-    # fig,ax = plt.subplots(figsize=(15,10))
     shm_etas = []
     for v in vMins:
         shm_eta = dmrates.DM_Halo.etaSHM(v)
@@ -520,13 +512,10 @@ def plot_damascus_output(test_mX,FDMn,cross_section,long=True,savefig=False,cmap
 
     ax = plt.gca()
 
-    # EE_Index = 0
     norm = matplotlib.colors.Normalize(vmin=0, vmax=180) 
 
     sm = plt.cm.ScalarMappable(cmap=cmap,norm=norm) 
-    # for i in range(35):
-    #     ax.plot(vMins[EE_Index,:],all_etas[i][EE_Index,:],color=cmap(i))
-    # ax.set_xlim([0, 800])
+
     plt.plot(vMins,shm_etas,linewidth=4,ls=':',color='black',label='SHM')
     plt.legend(prop={'size': 32},loc=3)
     plt.xlabel('$v_{\mathrm{min}}$ [km/s]')
@@ -534,9 +523,7 @@ def plot_damascus_output(test_mX,FDMn,cross_section,long=True,savefig=False,cmap
     ticks = np.linspace(0,180,19)[::2]
     clb = plt.colorbar(sm,ax=ax,ticks=ticks)
     clb.ax.set_title('$\Theta$\N{degree sign}',horizontalalignment='center',x=0.8)
-    # fig.suptitle('Ansh Recreation $m_{dm}$' + f' = {test_mX} σ$_E$ = {cross_section} cm$^2$',fontsize=32)
-    # title = '$m_{\chi} =$ ' + f'{test_mX} MeV' + ' $\overline{\sigma}_e = $ ' + cs_str
-    # plt.title(title)
+
 
     if FDMn == 2:
         plt.text(0.99,0.95,'$F_{\mathrm{DM}} = \\alpha m_e / q^2$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
@@ -548,40 +535,6 @@ def plot_damascus_output(test_mX,FDMn,cross_section,long=True,savefig=False,cmap
 
 
 
-
-
-    # fname_max = f'./halo_data/modulated/Parameter_Scan_{mediator}/mDM_{mX_str}_MeV_sigmaE_{cross_section}_cm2/DM_Eta_theta_{steps-1}.txt'
-    # fname_min = f'./halo_data/modulated/Parameter_Scan_{mediator}/mDM_{mX_str}_MeV_sigmaE_{cross_section}_cm2/DM_Eta_theta_{0}.txt'
-
-    # fdata_min = np.loadtxt(fname_min,delimiter='\t')
-    # x1 = vmin = fdata_min[:,0]
-    # y1 = fdata_min[:,1]
-
-    # fdata_max = np.loadtxt(fname_max,delimiter='\t')
-    # x2 = fdata_max[:,0]
-    # y2  = fdata_max[:,1]
-    # spl_high = CubicSpline(x2,y2)
-    # spl_low= CubicSpline(x1,y1)
-
-    # x = np.linspace(0,800,200)
-    # y1 = spl_low(x)
-    # y2 = spl_high(x)
-
-
-    # polygon = plt.fill_between(x, y1, y2, lw=0, color='none')
-    # xlim = plt.xlim()
-    # ylim = plt.ylim()
-    # verts = np.vstack([p.vertices for p in polygon.get_paths()])
-    # gradient = plt.imshow(np.linspace(0, 1, 180).reshape(-1, 1), cmap='viridis', aspect='auto',
-    #                     extent=[verts[:, 0].min(), verts[:, 0].max(), verts[:, 1].min(), verts[:, 1].max()])
-    # gradient.set_clip_path(polygon.get_paths()[0], transform=plt.gca().transData)
-    # plt.xlim(xlim)
-    # plt.ylim(ylim)
-
-
-
-    # plt.tight_layout()
-    # plt.title('$\eta$ Distribution vs Isoangle $\Theta$')
     if savefig:
         plt.savefig(f'figures/Misc/Eta_{test_mX}MeV_{cross_section}sigmaE_FDM{FDMn}.pdf')
     plt.show()
@@ -608,12 +561,8 @@ def plot_damascus_figure(test_mX,cross_section,long=True,savefig=False,cmap_name
     mX_str = float(test_mX)
     mX_str = np.round(mX_str,3)
 
-    # if mass_string.is_integer():
-    #     mass_string = int(mass_string)
-    # else:
     mX_str = str(mX_str)
     mX_str = mX_str.replace('.',"_")
-    # QE_Modulated_Halo = QEDark()
     import sys
     sys.path.append('..')
     import DMeRates
@@ -668,13 +617,10 @@ def plot_damascus_figure(test_mX,cross_section,long=True,savefig=False,cmap_name
         ax[i].set_xlim([0, 700])
 
 
-        # EE_Index = 0
         norm = matplotlib.colors.Normalize(vmin=0, vmax=180) 
 
         sm = plt.cm.ScalarMappable(cmap=cmap,norm=norm) 
-        # for i in range(35):
-        #     ax.plot(vMins[EE_Index,:],all_etas[i][EE_Index,:],color=cmap(i))
-        # ax.set_xlim([0, 800])
+
         ax[i].plot(vMins,shm_etas,linewidth=4,ls=':',color='black',label='SHM')
         ax[i].legend(prop={'size': 32},loc=3)
         ax[i].set_xlabel('$v_{\mathrm{min}}$ [km/s]')
@@ -682,9 +628,7 @@ def plot_damascus_figure(test_mX,cross_section,long=True,savefig=False,cmap_name
         ticks = np.linspace(0,180,19)[::2]
         clb = plt.colorbar(sm,ax=ax[i],ticks=ticks)
         clb.ax.set_title('$\Theta$\N{degree sign}',horizontalalignment='center',x=0.8)
-        # fig.suptitle('Ansh Recreation $m_{dm}$' + f' = {test_mX} σ$_E$ = {cross_section} cm$^2$',fontsize=32)
-        # title = '$m_{\chi} =$ ' + f'{test_mX} MeV' + ' $\overline{\sigma}_e = $ ' + cs_str
-        # plt.title(title)
+
 
         if FDMn == 2:
             ax[i].text(0.99,0.95,'$F_{\mathrm{DM}} = \\alpha m_e / q^2$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[i].transAxes)
@@ -754,546 +698,6 @@ def get_damascus_output(mX,sigmaE,FDMn):
         file_eta = filedata[:,1]
         data.append([file_vmin,file_eta])
     return data
-
-
-# def get_raw_damascus_output(dirname,mX,sigmaE,FDMn,rhoX=0.3):
-#     import os
-#     from scipy.interpolate import PchipInterpolator
-#     import sys
-#     sys.path.append('..')
-#     import DMeRates
-#     import DMeRates.DMeRate as DMeRate
-
-
-
-#     dmrates = DMeRate.DMeRate('Si')
-
-#     import numpy as np
-#     mX_str = float(mX)
-#     mX_str = np.round(mX_str,3)
-
-#     # if mass_string.is_integer():
-#     #     mass_string = int(mass_string)
-#     # else:
-#     mX_str = str(mX_str)
-#     mX_str = mX_str.replace('.',"_")
-#     dmrates.update_params(220,232,544,0.3e9,1e-36)
-#     vhigh = 3*(dmrates.vEarth + dmrates.vEscape)
-#     vMins = np.linspace(0,vhigh,1000)
-
-    
-#     # fig,ax = plt.subplots(figsize=(15,10))
-#     shm_etas = []
-#     for v in vMins:
-#         shm_eta = dmrates.DM_Halo.etaSHM(v)
-#         shm_etas.append(shm_eta)
-#     shm_etas = np.array(shm_etas)
-#     shm_etas /= (nu.s / nu.km) #in s/km
-
-
-    
-   
-#     dir = f'/Users/ansh/Local/SENSEI/DaMaSCUS/results/{dirname}_histograms/'
-#     rhofile =  f'/Users/ansh/Local/SENSEI/DaMaSCUS/results/{dirname}.rho'
-
-#     km = 5.067*1e18
-#     s = 1.51905*1e24
-#     # print(rhofile)
-#     rhofiledata = np.loadtxt(rhofile,delimiter='\t')
-    
-
-#     rho = rhofiledata[:,1]
-#     rho_i = rhofiledata[:,0]
-#     rho_func = PchipInterpolator(rho_i,rho)
-#     steps = len(os.listdir(dir)) //2
-#     actual_angle = np.linspace(0,180,steps)
-
-#     data = []
-
-#     for isoangle in range(steps):
-#         ai = actual_angle[isoangle]
-#         ai = round(ai)
-#         # print(isoangle,ai,cmap(ai))
-
-#         fname = f'{dir}eta.{isoangle}'
-#         # fname_DAMASCUS = f'./DaMaSCUS/results/5MeV_test_histograms/eta.{isoangle}'
-#         # print(fname)
-#         fdata = np.loadtxt(fname,delimiter='\t')
-#         vmin = fdata[:,0]* s/km
-#         eta = fdata[:,1]*km/s
-#         eta*=(rho_func(ai)/rhoX)
-#         filter_indices= np.where(vmin > 0)
-#         vmin = vmin[filter_indices]
-#         eta = eta[filter_indices]
-#         #interp
-
-#         eta_func = PchipInterpolator(vmin,eta)
-#         vmin_test = np.linspace(1,np.max(vmin),50)
-#         eta_interpolated = eta_func(vmin_test)
-#         data.append([vmin,eta])
-    
-#     data.append([vMins,shm_etas])
-#     return data
-
-# def getVerneData(mX,sigmaE,FDMn):
-#     import numpy as np
-#     import os
-#     if FDMn == 0:
-#         dir_stir = 'Scr'
-#     else:
-#         dir_stir = 'LM'
-#     mX= np.round(float(mX),2)
-#     mX_str = str(mX).replace('.','_')
-#     sigmaE = float(format(sigmaE, '.3g'))
-#     ddir = f'../halo_data/modulated/Verne_{dir_stir}/mDM_{mX_str}_MeV_sigmaE_{sigmaE}_cm2/'
-#     data = []
-#     num_angles = len(os.listdir(ddir))
-#     for i in range(num_angles):
-#         file = ddir + f'DM_Eta_theta_{i}.txt'
-#         filedata = np.loadtxt(file,delimiter='\t')
-#         file_vmin = filedata[:,0]
-#         file_eta = filedata[:,1]
-#         data.append([file_vmin,file_eta])
-#     return data
-
-
-
-
-# def plot_raw_damascus_output(dirname,mX,sigmaE,FDMn,rhoX=0.3,logy=False,save=False):
-#     import os
-#     from scipy.interpolate import PchipInterpolator
-#     import numpy as np
-
-
-#     import matplotlib
-#     import matplotlib.pyplot as plt
-#     set_default_plotting_params(fontsize=12)
-#     import sys
-#     sys.path.append('..')
-#     import DMeRates
-#     import DMeRates.DMeRate as DMeRate
-
-
-
-#     dmrates = DMeRate.DMeRate('Si')
-
-
-
-
-#     golden = (1 + 5 ** 0.5) / 2
-#     goldenx = 15
-#     goldeny = goldenx / golden
-
-#     plt.figure()
-
-#     # mediator = "LM"
-#     if FDMn == 0:
-#         fdm = 0
-#         mediator = "Scr"
-#     elif FDMn == 2:
-#         fdm = 2
-#         mediator = "LM"
-#     else:
-#         fdm = 0
-    
-#     mX_str = float(mX)
-#     mX_str = np.round(mX_str,3)
-
-#     # if mass_string.is_integer():
-#     #     mass_string = int(mass_string)
-#     # else:
-#     mX_str = str(mX_str)
-#     mX_str = mX_str.replace('.',"_")
-
-#     dmrates.update_params(220,232,544,0.3e9,1e-36)
-#     vhigh = 3*(dmrates.vEarth + dmrates.vEscape)
-#     vMins = np.linspace(0,vhigh,1000)
-
-#     shm_etas = []
-#     for v in vMins:
-#         shm_eta = dmrates.DM_Halo.etaSHM(v)
-#         shm_etas.append(shm_eta)
-#     shm_etas = np.array(shm_etas)
-#     shm_etas /= (nu.s / nu.km) #in s/km
-
-
-#     cmap = plt.get_cmap('viridis', 180) 
-   
-#     dir = f'/Users/ansh/Local/SENSEI/DaMaSCUS/results/{dirname}_histograms/'
-#     rhofile =  f'/Users/ansh/Local/SENSEI/DaMaSCUS/results/{dirname}.rho'
-
-#     km = 5.067*1e18
-#     s = 1.51905*1e24
-#     rhofiledata = np.loadtxt(rhofile,delimiter='\t')
-#     rho = rhofiledata[:,1]
-#     rho_i = rhofiledata[:,0]
-#     rho_func = PchipInterpolator(rho_i,rho)
-#     steps = len(os.listdir(dir)) //2
-#     actual_angle = np.linspace(0,180,steps)
-#     for isoangle in range(steps):
-#         ai = actual_angle[isoangle]
-#         ai = round(ai)
-#         # print(isoangle,ai,cmap(ai))
-
-#         fname = f'{dir}eta.{isoangle}'
-#         # fname_DAMASCUS = f'./DaMaSCUS/results/5MeV_test_histograms/eta.{isoangle}'
-#         fdata = np.loadtxt(fname,delimiter='\t')
-#         vmin = fdata[:,0]* s/km
-#         eta = fdata[:,1]*km/s
-#         eta*=(rho_func(ai)/rhoX)
-#         filter_indices= np.where(vmin > 0)
-#         vmin = vmin[filter_indices]
-#         eta = eta[filter_indices]
-#         #interp
-
-#         eta_func = PchipInterpolator(vmin,eta)
-
-
-#         plt.scatter(vmin,eta,color=cmap(ai))
-
-#         plt.plot(vmin,eta,color=cmap(ai))
-#         vmin_test = np.linspace(1,np.max(vmin),50)
-#         plt.plot(vmin_test,eta_func(vmin_test),color=cmap(ai),ls='dotted')
-
-
-
-    
-#     plt.xlim([0, 700])
-
-#     ax = plt.gca()
-
-#     # EE_Index = 0
-#     norm = matplotlib.colors.Normalize(vmin=0, vmax=180) 
-
-#     sm = plt.cm.ScalarMappable(cmap=cmap,norm=norm) 
-#     # for i in range(35):
-#     #     ax.plot(vMins[EE_Index,:],all_etas[i][EE_Index,:],color=cmap(i))
-#     # ax.set_xlim([0, 800])
-#     plt.plot(vMins,shm_etas,linewidth=4,ls=':',color='black',label='SHM')
-#     plt.legend(loc='lower right')
-#     plt.xlabel('$v_{\mathrm{min}}$ [km/s]')
-#     plt.ylabel('$\eta$ [s/km]')
-#     ticks = np.linspace(0,180,19)[::2]
-#     clb = plt.colorbar(sm,ax=ax,ticks=ticks)
-#     clb.ax.set_title('$\Theta$\N{degree sign}',horizontalalignment='center',x=0.8)
-#     # fig.suptitle('Ansh Recreation $m_{dm}$' + f' = {test_mX} σ$_E$ = {cross_section} cm$^2$',fontsize=32)
-#     # title = '$m_{\chi} =$ ' + f'{test_mX} MeV' + ' $\overline{\sigma}_e = $ ' + cs_str
-#     # plt.title(title)
-
-#     if FDMn == 2:
-#         plt.text(0.99,0.95,'$F_{\mathrm{DM}} = \\alpha m_e / q^2$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
-#     elif FDMn == 0:
-#         plt.text(0.99,0.95,'$F_{\mathrm{DM}} = 1$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
-#     else:
-#         plt.text(0.99,0.95,'$F_{\mathrm{DM}} = None$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
-#     plt.text(0.99,0.87,'$\overline{\sigma}_{e} =$ ' + str(sigmaE),color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
-#     plt.text(0.99,0.80,'$m_\chi=$ ' + f'{mX} MeV',color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
-
-#     if logy:
-#         plt.yscale('log')
-#     if not save:
-#         plt.show()
-#     else:
-#         plt.savefig(f'plotting/mX{mX}_sigmaE{sigmaE}_FDMn{FDMn}_raw_damascus_eta.jpg')
-#     plt.close()
-#     return
-
-
-
-# def point_checking(mX,sigmaE,FDMn,save=False,skipVerne=False,ne=1,useQCDark=True):
-    
-    
-#     import matplotlib
-#     import matplotlib.pyplot as plt
-
-#     import numpy as np
-#     import sys
-#     sys.path.append('..')
-#     import DMeRates
-#     import DMeRates.DMeRate as DMeRate
-
-    
-
-#     #font sizes
-#     small = 30
-#     smaller = 24
-#     medium = 36
-#     large = 40
-
-#     set_default_plotting_params(fontsmall=medium)
-    
-
-
-#     golden = (1 + 5 ** 0.5) / 2
-#     goldenx = 15
-#     goldeny = goldenx / golden
-
-
-
-#     sigmaP = sigmaE_to_sigmaP(sigmaE,mX)
-#     sigmaP = float(format(sigmaP, '.3g')) 
-#     mX = np.round(float(mX),3)
-#     mX_str = str(mX).replace('.','_')
-
-
-#     fig,ax = plt.subplots(2,3,figsize=(36,24))
-#     fig.delaxes(ax[1,2]) # The indexing is zero-based here
-#     name = f'mX{mX_str}_sigma{sigmaP}_fdm{FDMn}.cfg'
-#     damascus_found  = True
-#     try:
-#         damascus_output_data = get_raw_damascus_output(name,mX,sigmaE,FDMn,rhoX=0.3)
-#     except:
-#         try:
-#             damascus_output_data = get_damascus_output(mX,sigmaE,FDMn)
-#         except:
-#             damascus_found = False
-#             print('No Verne Data found')
-#     # shm = damascus_output_data[-1]
-#     if not skipVerne:
-#         verne_data = getVerneData(mX,sigmaE,FDMn)
-
-
-#     cmap = plt.get_cmap('viridis', 180) 
-#     norm = matplotlib.colors.Normalize(vmin=0, vmax=180) 
-#     sm = plt.cm.ScalarMappable(cmap=cmap,norm=norm) 
-#     # from QEDark.QEDarkConstants import lightSpeed
-#     # vmins = np.linspace(0,800,100)
-#     # imb_etas  =eta_SHM(vmins*1000/lightSpeed)
-#     if damascus_found:
-
-#         num_angles = len(damascus_output_data) - 1
-#         isoangles = np.linspace(0,180,num_angles)
-#         for i in range(num_angles):
-#             ai =int(np.round(isoangles[i]))
-#             vmin = np.array(damascus_output_data[i][0])
-#             eta = np.array(damascus_output_data[i][1])
-#             ax[1,0].plot(vmin,eta,color=cmap(ai))
-
-
-        
-
-        
-
-
-#         # ax[1,0].plot(vmins,imb_etas,linewidth=4,ls=':',color='black',label='SHM')
-#         ax[1,0].legend(loc='lower right',fontsize=small)
-#     ax[1,0].set_xlabel('$v_{\mathrm{min}}$ [km/s]')
-#     ax[1,0].set_ylabel('$\eta$ [s/km]')
-#     ax[1,0].set_title("DaMaSCUS Eta Distribution")
-#     ticks = np.linspace(0,180,19)[::2]
-#     clb = plt.colorbar(sm,ax=ax[1,0],ticks=ticks)
-#     clb.ax.set_title('$\Theta$\N{degree sign}',horizontalalignment='center',x=0.8)
-
-
-
-#     if FDMn == 2:
-#         ax[1,0].text(0.99,0.95,'$F_{\mathrm{DM}} = \\alpha m_e / q^2$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,0].transAxes)
-#     elif FDMn == 0:
-#         ax[1,0].text(0.99,0.95,'$F_{\mathrm{DM}} = 1$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,0].transAxes)
-#     else:
-#         ax[1,0].text(0.99,0.95,'$F_{\mathrm{DM}} = None$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,0].transAxes)
-#     ax[1,0].text(0.99,0.87,'$\overline{\sigma}_{e} =$ ' + str(sigmaE),color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,0].transAxes)
-#     ax[1,0].text(0.99,0.80,'$m_\chi=$ ' + f'{mX} MeV',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,0].transAxes)
-
-
-
-#     if not skipVerne:
-#         num_angles = len(verne_data)
-#         isoangles = np.linspace(0,180,num_angles)
-#         for i in range(num_angles):
-#             ai =int(np.round(isoangles[i]))
-#             vmin = np.array(verne_data[i][0])
-#             eta = np.array(verne_data[i][1])
-#             ax[1,1].plot(vmin,eta,color=cmap(ai))
-
-#         # ax[1,1].plot(vmins,imb_etas,linewidth=4,ls=':',color='black',label='SHM')
-#         ax[1,1].legend(loc='lower right',fontsize=small)
-#         ax[1,1].set_xlabel('$v_{\mathrm{min}}$ [km/s]')
-#         ax[1,1].set_ylabel('$\eta$ [s/km]')
-#         ax[1,1].set_title("Verne Eta Distribution")
-#         ticks = np.linspace(0,180,19)[::2]
-#         clb = plt.colorbar(sm,ax=ax[1,1],ticks=ticks)
-#         clb.ax.set_title('$\Theta$\N{degree sign}',horizontalalignment='center',x=0.8)
-
-
-#         if FDMn == 2:
-#             ax[1,1].text(0.99,0.95,'$F_{\mathrm{DM}} = \\alpha m_e / q^2$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,1].transAxes)
-#         elif FDMn == 0:
-#             ax[1,1].text(0.99,0.95,'$F_{\mathrm{DM}} = 1$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,1].transAxes)
-#         else:
-#             ax[1,1].text(0.99,0.95,'$F_{\mathrm{DM}} = None$',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,1].transAxes)
-#         ax[1,1].text(0.99,0.87,'$\overline{\sigma}_{e} =$ ' + str(sigmaE),color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,1].transAxes)
-#         ax[1,1].text(0.99,0.80,'$m_\chi=$ ' + f'{mX} MeV',color='black',horizontalalignment='right',verticalalignment='center',transform = ax[1,1].transAxes)
-
-
-
-
-
-
-#     materials = ['Si', 'Xe', 'Ar']
-#     for j,mat in enumerate(materials):
-#         plot_ax = ax[0,j]
-#         angles,rate_high = get_modulated_rates(mat,mX,sigmaE,FDMn,useVerne=False,calcError="High",ne=ne,useQCDark=useQCDark) 
-#         angles,rate_low = get_modulated_rates(mat,mX,sigmaE,FDMn,useVerne=False,calcError="Low",ne=ne,useQCDark=useQCDark) 
-        
-#         angles,rate = get_modulated_rates(mat,mX,sigmaE,FDMn,useVerne=False,calcError=None,ne=ne,useQCDark=useQCDark) * nu.kg * nu.day
-#         if not skipVerne:
-#             angles_v,rate_verne = get_modulated_rates(mat,np.round(mX,2),sigmaE,FDMn,useVerne=True,calcError=None,ne=ne,useQCDark=useQCDark) * nu.kg * nu.day
-
-#         rate_high*= nu.kg * nu.day
-#         rate_low *= nu.kg * nu.day
-#         rate_verne*= nu.kg * nu.day
-#         rate*= nu.kg * nu.day
-
-
-#         rate_err = rate_high - rate
-            
-#         if useQCDark:
-#             dmrates = DMeRate.DMeRate(mat)
-#             integrate = True
-#         else:
-#             dmrates = DMeRate.DMeRate(mat,QEDark=True)
-#             integrate = False
-#         dmrates.update_crosssection(sigmaE)
-
-#         dmrates.update_params(238,250,544,0.3e9,sigmaE)
-
-#         result_flat = dmrates.calculate_rates(mX,'shm',FDMn,ne,integrate=integrate,DoScreen=True,isoangle=None,useVerne=False) * nu.kg *nu.day
-
-    
-#         # kg_year = float(base_result)
-#         # g_year = kg_year / 1000
-#         # g_day = g_year * (1/365)
-#         base_result = np.ones_like(angles) * result_flat
-        
-
-
-#         try:
-#             angle_grid,fit_vector,parameters,error = fitted_rates(angles,rate,rate_err)
-#         except ValueError:
-#             angle_grid,fit_vector,parameters,error = fitted_rates(angles,rate,rate_err,linear=True)
-#         fit = fit_vector[0]
-#         fit_upper = fit_vector[1]
-#         fit_lower = fit_vector[2]
-
-#         plot_ax.plot(angle_grid,fit,color='red',label="Fit")
-#         plot_ax.fill_between(angle_grid,fit_lower,fit_upper,color='red',label="Fit Uncertainty",alpha=0.3)
-        
-#         if len(parameters) > 3:
-#             inflection = parameters[1]
-#             inflection_err = error[1]
-#             plot_ax.axvspan(inflection-inflection_err,inflection+inflection_err,alpha=0.3,label="Inflection band")
-#             fit_type = fit_vector[-1]
-
-#             amp = (np.max(fit) - np.min(fit)) / 2
-#             frac_amp = amp / np.mean(fit)
-#             frac_amp = np.round(frac_amp,2)
-#             amp = np.round(amp,2)
-#             plot_ax.text(0.03, 0.25, f'frac amp = {frac_amp}, amp = {amp}',
-#         horizontalalignment='left',
-#         verticalalignment='center',
-#         transform =plot_ax.transAxes,c='blue',fontsize=smaller)
-
-
-#         else: #fit failed, returned a linear regression
-#             slope = parameters[0]
-#             intercept = parameters[1]
-#             r = parameters[2]
-#             r_squared = r**2
-#             p = error[0]
-#             std_err = error[1]
-#             intercept_stderr = error[2]
-            
-#             fit_type = 'Linear'
-
-#         round_values = []
-#         mse = fit_vector[3]
-#         rmse = fit_vector[4]
-#         ssr = fit_vector[5]
-#         # [linear_fit,linear_fit_upper,linear_fit_lower,mse_linear,rmse_linear,ssr_linear]
-#         # mse_fit = np.mean((rate - fit)**2)
-#         # rmse_fit = np.sqrt(mse_fit)
-        
-#         # ssr_fit =  ((rate - fit) ** 2).sum()
-        
-#         for err in [ssr,mse,rmse]:
-#             if err > 1:
-#                 round_values.append(1)
-#             else:
-#                 round_values.append(5)
-
-
-#         plot_ax.text(0.03, 0.03, f'{fit_type} SSR = {np.round(ssr,int(round_values[0]))} MSE = {np.round(mse,int(round_values[1]))} RMSE = {np.round(rmse,int(round_values[2]))}',
-#         horizontalalignment='left',
-#         verticalalignment='center',
-#         transform =plot_ax.transAxes,c='red',fontsize=smaller)
-
-
-
-
-
-#         # print("Si")
-#         # print(len(angles),len(rate))
-
-#         plot_ax.errorbar(angles,rate,yerr=rate_err,label="Uncertainty",linestyle='')
-#         plot_ax.scatter(angles,rate,label='Data')
-#         plot_ax.plot(angles,base_result,color='green',label="No Modulation")  
-#         if not skipVerne:   
-#             plot_ax.plot(angles_v,rate_verne,label='Verne',ls='--')
-
-#         if FDMn == 0:
-#             plot_ax.set_title(f"Heavy Mediator {materials[j]} {ne} e$^-$")
-#         elif FDMn == 2:
-#             plot_ax.set_title(f"Light Mediator {materials[j]} {ne} e$^-$")
-#         plot_ax.set_ylabel('Rate [events/g/day]')
-#         plot_ax.set_xlabel('Isoangle')
-#         plot_ax.set_xlim(0,180)
-#         plot_ax.set_xticks(np.linspace(0,180,19)[::2])
-#         plot_ax.legend(fontsize=smaller,loc='upper right')
-
-#     if not save:
-#         plt.show()
-#     else:
-#         plt.savefig(f'plotting/{mX_str}mX_{sigmaE}cm2_FDMn{FDMn}_ratechecking.jpg')
-#     plt.close()
-
-#     return 
-    
-    
-
-
-# def eta_SHM(vmins):
-#     import numpy as np
-#     from scipy.special import erf
-#     from QEDarkConstants import lightSpeed
-#     eta = np.zeros_like(vmins)
-#     vEarth = 250.2e3 #m/s
-#     vEscape = 544e3 #m/s
-#     v0 = 238e3 #m/s
-#     vEarth/=lightSpeed
-#     vEscape/=lightSpeed
-#     v0/=lightSpeed
-    
-
-#     val_below = -4.0*vEarth*np.exp(-(vEscape/v0)**2) + np.sqrt(np.pi)*v0*(erf((vmins+vEarth)/v0) - erf((vmins - vEarth)/v0))
-
-#     val_above = -2.0*(vEarth+vEscape-vmins)*np.exp(-(vEscape/v0)**2) + np.sqrt(np.pi)*v0*(erf(vEscape/v0) - erf((vmins - vEarth)/v0))
-
-#     above_mask = vmins < vEscape + vEarth
-#     eta = np.where(above_mask,val_below,eta)
-#     below_mask = vmins < vEscape - vEarth
-#     eta = np.where(below_mask,val_below,eta)
-    
-
-#     K = (v0**3)*(-2.0*np.pi*(vEscape/v0)*np.exp(-(vEscape/v0)**2) + (np.pi**1.5)*erf(vEscape/v0))
-
-#     etas = (v0**2)*np.pi/(2.0*vEarth*K)*eta #units of c^-1
-#     etas/=lightSpeed #convert to s/m
-#     etas*=1e3#convert to s/km
-#     #not sure if etas is allowed to be zero.
-#     etas[np.where(etas < 0)] = 0
-#     return etas
-
 
 
 def get_angle_limits(loc,date=[8,8,2024]):
@@ -1382,9 +786,7 @@ def get_amplitude(mX,sigmaE,FDMn,material,min_angle,max_angle,ne=1,fractional=Fa
             rate_err = rate_high - rate
 
 
-    # except:
-    #     #something went wrong
-    #     return -1
+
     if fit:
         fitFailed_w_errors = False
         fitFailed = False
@@ -1412,12 +814,7 @@ def get_amplitude(mX,sigmaE,FDMn,material,min_angle,max_angle,ne=1,fractional=Fa
             print(f'Warning, fit failed for this point mX = {mX} sigmaE = {sigmaE}')
             return np.nan
 
-        # plt.scatter(isoangles,rate)
-
-        # plt.plot(angle_grid,fit_vector[0])
-
-        # if fitFailed_w_errors:
-        #     print(f'Warning, fit failed with errors for this point mX = {mX} sigmaE = {sigmaE}')
+       
 
         lab_angles = np.linspace(min_angle,max_angle,100)
         try:
@@ -1425,9 +822,7 @@ def get_amplitude(mX,sigmaE,FDMn,material,min_angle,max_angle,ne=1,fractional=Fa
         except:
             print('fit returned a linear fit i think')
             return np.nan
-        # plt.plot(lab_angles,lab_rate)
-        # plt.show()
-        # plt.close()
+
     else: # interpolate
         import numpy as np
         lab_angles = np.linspace(min_angle,max_angle,100)
@@ -1441,8 +836,6 @@ def get_amplitude(mX,sigmaE,FDMn,material,min_angle,max_angle,ne=1,fractional=Fa
     fractional_amplitude = amplitude / average
     
 
-    # if np.max(lab_rate) < 1e-10:
-    #     return 0
 
     if fractional:
         if average == 0:
@@ -1536,17 +929,11 @@ def plot_modulation_ne_bins(mX1,mX2,sigmaE1,sigmaE2,material,FDMn,location1='SNO
     secondPointStr = '$m_\chi = $' + f'{mX2} MeV' + ' $\overline{\sigma}_e =$ ' + f'{sigmaE2_print}' + ' cm$^2$'
     plt.text(x, y-0.06-0.06, location1,horizontalalignment='right',verticalalignment='center',transform = ax.transAxes,c=colorlist[0],fontsize=medium)
     plt.text(x, y-0.06-0.06-0.06, location2,horizontalalignment='right',verticalalignment='center',transform = ax.transAxes,c=colorlist[1],fontsize=medium)
-    # ax.annotate("Dashed Line Annotation", xy=(0.99,.72), xytext=(0.8, .72), 
-    #         arrowprops=dict(arrowstyle="-", linestyle="--"),transform=ax.transAxes)
-    
-    # plt.text(0.99, 0.72, 'DaMaSCUS',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes,c='Black',fontsize=medium,withdash=True)
-
 
     from matplotlib.lines import Line2D
     custom_lines = [Line2D([0], [0], color='black', linestyle='-',lw=3),
                     Line2D([0], [0], color='black', linestyle='--',lw=3)]
 
-    # Create the legendplt.legend(frameon=False, framealpha=0)
     if material == 'Si':
         if FDMn == 0:
             xshift = 0.5
@@ -1612,11 +999,6 @@ def getModulationAmplitudes(material,FDMn,location,fractional=False,useVerne=Tru
 
     halo_type = calc_method_dict[useVerne]
 
-    # if FDMn ==0:
-    #     dir_str = 'Scr'
-    # else:
-    #     dir_str = "LM"
-    # halo_dir = f'halo_data/modulated/{halo_type}_{dir_str}'
     screenstr = '_screened' if material == 'Si' else ""
     summerstr = '_summer' if summer else ''
     
@@ -1698,320 +1080,7 @@ def find_exp(number) -> int:
 
 
 
-                          
-
-# def plotModulationContour(material,FDMn,location,fractional=False,useVerne=True,fromFile=True,verbose=False,masses=None,sigmaEs =None,plotConstraints=True,savefig=False,ne=1,shadeMFP=False,massBounds=None,csBounds=None):
-#     import numpy as np
-#     import matplotlib.pyplot as plt
-#     import matplotlib
-#     from matplotlib import colors
-#     from matplotlib import cm, ticker
-
-#     # plotting specifications
-#     from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
-#                                 AutoMinorLocator)
-#     from matplotlib.offsetbox import AnchoredText
-#     #Options
-
-#     large = 48
-#     small = 36
-#     medium = 40
-#     smaller = 30
-#     smallest=16
-#     params = {'text.usetex' : True,
-#         'font.size' : medium,
-#             'font.family' : 'cmr10',
-#             'figure.autolayout': True
-#         }
-#     plt.rcParams.update(params)
-#     plt.rcParams['axes.unicode_minus']=False
-#     plt.rcParams['axes.labelsize']=32
-#     plt.rcParams['figure.figsize']=(16,12)
-#     plt.rcParams['axes.formatter.use_mathtext']=True
-#     if masses is None and sigmaEs is None:
-#         getAll = True
-#     else:
-#         getAll = False
-#     Masses,CrossSections,Amplitudes = getContourData(material,FDMn,location,fractional=fractional,useVerne=useVerne,fromFile=fromFile,verbose=verbose,getAll=getAll,masses=masses,sigmaEs=sigmaEs,ne=ne)
-#     if fractional:
-#         Amplitudes[np.isnan(Amplitudes)] = 0
-#         Amplitudes[Amplitudes == np.inf] = 0
-#         Amplitudes[Amplitudes == -np.inf] = 0
-        
-#     else:
-#         # Amplitudes[np.isnan(Amplitudes)] =0
-#         Amplitudes[Amplitudes==0] = 1e-8
-
-#     if masses is not None and sigmaEs is not None:
-#         Amplitudes = Amplitudes.T
-
-#     fig = plt.figure()
-#     ax = plt.gca()
-#     plt.xscale('log')
-#     ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-#     plt.yscale('log')
-#     if masses is not None:
-#         mass_low = np.min(masses)
-#         mass_high = np.max(masses)
-#     elif massBounds is not None:
-#         mass_high = massBounds[1]
-#         mass_low = massBounds[0]
-#     else:
-#         mass_low = 0.5
-#         mass_high = 1000
-#     if sigmaEs is not None:
-#         cs_low = np.min(sigmaEs)
-#         cs_high = np.max(sigmaEs)
-#     elif csBounds is not None:
-#         cs_high = csBounds[1]
-#         cs_low = csBounds[0]
-#     else:
-#         cs_low = np.min(CrossSections)
-#         cs_high = np.max(CrossSections)
-#     if FDMn == 2 and csBounds is None:
-#         cs_low = 1e-40
-#         cs_high = 1e-30
-#     plt.xlim(mass_low,mass_high)
-#     plt.ylim(cs_low,cs_high)
-#     ax.tick_params('x', top=True, labeltop=False)
-#     ax.tick_params('y', right=True, labelright=False)
-#     plt.xlabel('$m_\chi$ [MeV]',fontsize=small)
-#     plt.ylabel('$\overline{\sigma}_e$ [cm$^2$]',fontsize=small)
-
-#     if fractional:
-#         vmin = 0
-        
-#         max_amp = np.nanmax(Amplitudes) + np.mean(Amplitudes)
-#         min_amp = np.nanmin(Amplitudes)
-        
-#         # levs = np.round(levs,3)
-#         # if max_amp < 2:
-#         #     vmax = 2
-#         # else:
-#         #     vmax = 10
-#         vmax = 2
-#         levs = np.arange(0,10,0.1)
-#         norm =colors.Normalize(vmin=vmin,vmax=vmax)
-#         extend = 'max'
-        
-        
-
-#     else:
-#         Amplitudes[Amplitudes == np.inf] = np.nan
-#         Amplitudes[Amplitudes == -np.inf] = np.nan
-#         max_amp = np.nanmax(Amplitudes)
-        
-#         min_amp = np.nanmin(Amplitudes)
-#         low = -10 #find_exp(min_amp) 
-#         high = find_exp(max_amp) + 2
-#         if high <= 1:
-#             high = 3
-
-        
-#         levs = np.arange(low,high) 
-#         levs = np.power(10.,levs)
-#         vminexp = -8
-#         vmaxexp = 6
-#         vmin = np.power(10.,vminexp)
-#         vmax = np.power(10.,vmaxexp)
-#         vmaxminus1 = np.power(10.,vmaxexp-1)
-
-#         # levs = np.arange(vminexp,vmaxexp) 
-#         # levs = np.power(10.,levs)
-        
-
-#         # norm =colors.LogNorm(vmin=vmin,vmax=vmax)
-#         norm =colors.LogNorm(vmin=vmin,vmax=vmax)
-#         extend = 'both'
-#     cmap = 'Spectral_r'#diverging
-
-#     #actual plotting
-#     background_filling = np.ones_like(Amplitudes)*1e-10
-#     BF = plt.contourf(Masses,CrossSections,background_filling,norm=norm,cmap=cmap,extend=extend)
-#     CT1 =  plt.contourf(Masses,CrossSections,Amplitudes,levs,norm=norm,cmap=cmap,extend=extend)
-#     # CT1.cmap.set_under(camp(norm(vmin)))
-
-
-#     # if fractional:
-#     #     if max_amp < 2:
-#     #         CT1.cmap.set_over(camp(norm(max_amp)))
-#     #     else:
-#     #         CT1.cmap.set_over(camp(norm(vmax)))
-#     # else:
-#     #     CT1.cmap.set_over(camp(norm(vmax)))
-
-
-#     #plotting for contour labels
-#     if fractional:
-#         levs = np.arange(0,2.1,0.1)
-#         AmpContours = plt.contour(Masses,CrossSections,Amplitudes,levs,cmap=plt.get_cmap('binary'),alpha = 0)
-#         # if FDMn == 0:
-#         #     index = 14
-#         # elif FDMn == 2:
-#         #     index = 8
-#         # zeropos = AmpContours.allsegs[index][0]
-#         # plt.plot(zeropos[:, 0], zeropos[:, 1], color='white',lw=3,ls=':')
-
-
-#         fmt = ticker.LogFormatterMathtext()
-#         fmt.create_dummy_axis()
-#         deflevs = AmpContours.levels
-#         maxlev =  np.max(deflevs)
-#         clevsd = [0,0.5,1,1.5]
-#         final_levs = []
-#         for c in clevsd:
-#             if c < maxlev:
-#                 final_levs.append(c)
-
-
-#         # clevs = np.array(clevs)
-#         # oddlevs = clevs[::2]
-#         # evenlevs = clevs[1::2]
-#         # if 1e0 in oddlevs:
-
-#         # # clevs = [1.e-6,1.e-4,1.e-02, 1.e+00, 1.e+02, 1.e+04,1.e+06]
-#         #     newlevs = oddlevs[oddlevs> 1e-6]
-#         # else:
-#         #     newlevs = evenlevs[evenlevs> 1e-6]
-            
-#         plt.clabel(AmpContours,deflevs, fmt=fmt)
-
-    
-
-#     if plotConstraints:
-#         import sys
-#         # sys.path.append('../../../limits/other_experiments/')
-#         sys.path.append('../limits/')
-#         from Constraints import plot_constraints
-        
-#         from modulation_contour import plot_constraints
-#         x,y = plot_constraints('All',FDMn)
-#         plt.plot(x,y,color='black',lw=3)
-#         x,y = plot_constraints('Solar',FDMn)
-#         plt.plot(x,y,color='black',lw=3,ls='--')
-
-#     if FDMn == 0:
-#         fdm_str = '$F_{\mathrm{DM}}= 1$'
-#     else:
-#         fdm_str = '$F_{\mathrm{DM}} = \\alpha m_e / q^2$'
-
-#     plt.text(0.95, 0.93, material,
-#      horizontalalignment='center',
-#      verticalalignment='center',
-#      transform = ax.transAxes,c='Black',fontsize=medium)
-#     plt.text(0.02, 0.19, location,
-#     horizontalalignment='left',
-#     verticalalignment='center',
-#     transform = ax.transAxes,c='Black',fontsize=small)
-#     plt.text(0.02, 0.12, fdm_str,
-#     horizontalalignment='left',
-#     verticalalignment='center', 
-#     transform = ax.transAxes,c='Black',fontsize=small)
-
-#     e_bin_str = '$e^-$ bin = '+f'{ne}'
-#     plt.text(0.02, 0.05, e_bin_str,
-#     horizontalalignment='left',
-#     verticalalignment='center', 
-#     transform = ax.transAxes,c='Black',fontsize=small)
-
-
-
-#     if fractional:
-#         plt.title(f'Fractional Modulation Amplitude',fontsize=medium,y=1.03)
-
-#     else:
-#         plt.title(f'Modulation Amplitude [Events/g/day]',fontsize=medium,y=1.03)
-
-
-
-    
-#     if shadeMFP:
-#         import sys
-#         from tqdm.autonotebook import tqdm
-#         sys.path.append('../DaMaSCUS/')
-#         from MeanFreePath import Earth_Density_Layer_NU
-
-
-#         mX_grid_mfp = np.geomspace(mass_low,mass_high,100)
-#         print(mass_low,mass_high)
-#         sigmaE_grid_mpf = np.geomspace(cs_low,cs_high,100)
-
-#         #np.arange(0.1,1500,0.1)
-#         EDLNU = Earth_Density_Layer_NU()
-#         r_test = 0.8*EDLNU.EarthRadius #choose mantle
-#         vMax = 300 * EDLNU.km / EDLNU.sec
-
-#         MFP = []
-#         for s in tqdm(range(len(sigmaE_grid_mpf))):
-#             MFP_small = []
-#             for m in range(len(mX_grid_mfp)):
-#                 mX = mX_grid_mfp[m]*1e-3 #GeV
-#                 sigmaP= sigmaE_grid_mpf[s] * (EDLNU.muXElem(mX,EDLNU.mProton) / EDLNU.muXElem(mX,EDLNU.mElectron))**2
-
-#                 mfp = EDLNU.Mean_Free_Path(r_test,mX,sigmaP,vMax,FDMn,doScreen=True)
-#                 MFP_small.append(mfp)
-#             MFP_small = np.array(MFP_small)
-#             MFP.append(MFP_small)
-#         MFP = np.array(MFP)
-
-#         # shade = np.zeros_like(MFP,dtype=bool)
-#         # shade[MFP < 1] = True
-#         # shade[MFP>=1] = False
-#         X,Y = np.meshgrid(mX_grid_mfp,sigmaE_grid_mpf)
-#         shade = np.ma.masked_where(MFP > 1, MFP)
-
-#         plt.pcolor(X, Y, shade,hatch='/',alpha=0)
-
-        
-
-#     if fractional:
-#         max_vis_amp = np.round(np.nanmax(Amplitudes),2)
-#         if np.nanmax(Amplitudes) > 1:
-#             cbar = fig.colorbar(CT1,extend=extend,norm=norm)
-#             # cbar.ax.set_yticklabels(['0', '$1$', f'$>2$'])
-#             cbar.ax.set_ylim(0,10)
-#         else:
-#             cbar = fig.colorbar(CT1,extend=extend,ticks=[0,max_vis_amp],norm=norm)
-#             cbar.ax.set_yticklabels(['0',f'$>${max_vis_amp}'])
-#             cbar.ax.set_ylim(0,max_vis_amp)
-#         # cbar = fig.colorbar(CT1,extend=extend,norm=norm)
-
-
-#     else:
-#         cbar = fig.colorbar(CT1,extend=extend,norm=norm)
-#         cbar.ax.set_yticks([vmin,1,vmaxminus1])
-#         cbar.ax.set_yticklabels(['$< 10^{-8}$', '$1$', '$ > 10^6$'])
-#         cbar.ax.set_ylim(vmin,vmaxminus1)
-        
-
-#         # cbar = fig.colorbar(CT1,extend='both')
-#         # # cbar.ax.set_yticklabels(['$< 10^{-6}$', '$1$', '$ > 10^6$'])
-
-#     if FDMn == 0:
-#         xy = (50,2e-41)
-#         xysolar = (0.65,1e-37)
-#     else: 
-#         xy = (50,2e-36)
-#         xysolar = (0.65,3e-34)
-    
-#     if plotConstraints:
-#         plt.annotate('Current Constraints',xy,fontsize=small)
-#         plt.annotate('Solar Bounds',xysolar,fontsize=smallest)
-#     if savefig:
-#         if fractional:
-#             frac_str = 'fractional_'
-#         else:
-#             frac_str = ''
-#         savedir = f'/Users/ansh/Local/SENSEI/paper_writing/ModulationTheory/figures/{material}/'
-
-#         plt.savefig(f'{savedir}/{frac_str}Mod_Amplitude_{location}_fdm{FDMn}_mat{material}_{ne}ebin.png')
-#     plt.show()
-#     plt.close()
-#     return
-
-            
-    
-
+      
     
 def modify_colormap(cmap_name,divisor=2, white_at_bottom=True):
     import numpy as np
@@ -2031,238 +1100,7 @@ def modify_colormap(cmap_name,divisor=2, white_at_bottom=True):
 
 
 
-                          
-
-# def plotSignificanceContour(material,FDMn,location,exposure,background_rate,useVerne=True,fromFile=True,verbose=False,masses=None,sigmaEs =None,plotConstraints=True,savefig=False,ne=1,xlow=None,ylow=None,xhigh=None,yhigh=None):
-#     import numpy as np
-#     import matplotlib.pyplot as plt
-#     import matplotlib as mpl
-#     from matplotlib import colors
-#     from matplotlib import cm, ticker
-
-#     # plotting specifications
-#     from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
-#                                 AutoMinorLocator)
-#     from matplotlib.offsetbox import AnchoredText
-#     #Options
-
-#     large = 48
-#     small = 36
-#     medium = 40
-#     smallest=16
-#     smaller = 30
-#     params = {'text.usetex' : True,
-#         'font.size' : medium,
-#             'font.family' : 'cmr10',
-#             'figure.autolayout': True
-#         }
-#     plt.rcParams.update(params)
-#     plt.rcParams['axes.unicode_minus']=False
-#     plt.rcParams['axes.labelsize']=32
-#     plt.rcParams['figure.figsize']=(16,12)
-#     plt.rcParams['axes.formatter.use_mathtext']=True
-#     if masses is None and sigmaEs is None:
-#         getAll = True
-#     else:
-#         getAll = False
-#     Masses,CrossSections,FractionalAmplitudes = getContourData(material,FDMn,location,fractional=True,useVerne=useVerne,fromFile=fromFile,verbose=verbose,getAll=getAll,masses=masses,sigmaEs=sigmaEs,ne=ne)
-#     Masses,CrossSections,Amplitudes = getContourData(material,FDMn,location,fractional=False,useVerne=useVerne,fromFile=fromFile,verbose=verbose,getAll=getAll,masses=masses,sigmaEs=sigmaEs,ne=ne,returnaverage=True)
-#     FractionalAmplitudes[np.isnan(FractionalAmplitudes)] = 0
-
-#     Significance = (FractionalAmplitudes*Amplitudes)*exposure / np.sqrt((Amplitudes + background_rate)*exposure)
-
-#     Significance[np.isnan(Significance)] = 0
-
-#     # Significance[Significance < 0.3] = 0
-
-#     # Significance[Significance > 5] = 5.5
-
-#     if masses is not None and sigmaEs is not None:
-#         Significance = Significance.T
-
-#     fig = plt.figure()
-#     ax = plt.gca()
-#     plt.xscale('log')
-#     ax.get_xaxis().set_major_formatter(mpl.ticker.ScalarFormatter())
-#     plt.yscale('log')
-
-#     if xlow is not None:
-#         mass_low = xlow
-#     else:
-#         mass_low = np.min(Masses)
-#     if xhigh is not None:
-#         mass_high = xhigh
-#     else:
-#         mass_high = np.max(Masses)
-
-        
-#     if ylow is not None:
-#         cs_low = ylow
-#     else:
-#         cs_low = np.min(CrossSections)
-#         if FDMn == 2:
-#             cs_low = 1e-40
-
-#     if yhigh is not None:
-#         cs_high = yhigh
-#     else:
-#         cs_high = np.max(CrossSections)
-#         if FDMn == 2:
-#             cs_high =  1e-30
-
-
-
-    
-#     plt.xlim(mass_low,mass_high)
-#     plt.ylim(cs_low,cs_high)
-#     ax.tick_params('x', top=True, labeltop=False)
-#     ax.tick_params('y', right=True, labelright=False)
-#     plt.xlabel('$m_\chi$ [MeV]',fontsize=small)
-#     plt.ylabel('$\overline{\sigma}_e$ [cm$^2$]',fontsize=small)
-
- 
-        
-
-#     vmin = 0
-#     vmax = 5
-#     max_sig = np.max(Significance)
-#     min_sig = np.min(Significance)
-#     # if max_sig > 2:
-#     #     levs = np.arange(0,int(max_sig),1)
-#     # else:
-#     levs = np.arange(0,vmax,0.5)
-#     # levs = np.linspace(0,vmax,50)
-
-#     # norm =colors.LogNorm(vmin=vmin,vmax=vmax)
-#     norm =colors.Normalize(vmin=vmin,vmax=vmax)
-#     extend = 'max'
-#     cmap = 'Spectral_r'#diverging
-
-#     # Example usage:
-#     original_cmap = cmap
-#     cmap = modify_colormap(original_cmap,divisor=10)
-#     # cmap = 'Reds'#single color
-#     # cmap = 'afmhot_r'#sequential
-#     # cmap = 'RdYlBu_r'#diverging
-
-
-#     # upper = mpl.cm.Reds(np.arange(256))
-#     # lower = np.ones((int(256/4),4))
-#     # for i in range(3):
-#     #     lower[:,i] = np.linspace(1, upper[0,i], lower.shape[0])
-
-#     # cmap = np.vstack(( lower, upper ))
-#     # cmap = mpl.colors.ListedColormap(cmap, name='myColorMap', N=cmap.shape[0])
-
-
-#     #actual plotting
-
-#     CT1 =  plt.contourf(Masses,CrossSections,Significance,levs,norm=norm,cmap=cmap,extend=extend)
-#     # CT1.cmap.set_under(camp(norm(vmin)))
-
-
-#     # if fractional:
-#     #     if max_amp < 2:
-#     #         CT1.cmap.set_over(camp(norm(max_amp)))
-#     #     else:
-#     #         CT1.cmap.set_over(camp(norm(vmax)))
-#     # else:
-#     #     CT1.cmap.set_over(camp(norm(vmax)))
-
-
-#     #plotting for contour labels
-#     # CTFF = plt.contour(Masses,CrossSections,Amplitudes,levs,cmap=plt.get_cmap('binary'),linewidths=0)
-
-#     if plotConstraints:
-#         import sys
-#         # sys.path.append('../../../limits/other_experiments/')
-#         sys.path.append('../limits/')
-#         from Constraints import plot_constraints
-#         x,y = plot_constraints('All',FDMn)
-#         plt.plot(x,y,color='black',lw=3)
-#         x,y = plot_constraints('Solar',FDMn)
-#         plt.plot(x,y,color='black',lw=3,ls='--')
-
-#     if FDMn == 0:
-#         fdm_str = '$F_{\mathrm{DM}}= 1$'
-#     else:
-#         fdm_str = '$F_{\mathrm{DM}} = \\alpha m_e / q^2$'
-
-#     e_bin_str = f'{ne}' + '$e^-$ bin'
-#     plt.text(0.95, 0.93, material,
-#      horizontalalignment='center',
-#      verticalalignment='center',
-#      transform = ax.transAxes,c='Black',fontsize=medium)
-#     plt.text(0.02, 0.19, location,
-#     horizontalalignment='left',
-#     verticalalignment='center',
-#     transform = ax.transAxes,c='Black',fontsize=small)
-#     plt.text(0.02, 0.12, fdm_str,
-#     horizontalalignment='left',
-#     verticalalignment='center', 
-#     transform = ax.transAxes,c='Black',fontsize=small)
-#     plt.text(0.02, 0.05, e_bin_str,
-#     horizontalalignment='left',
-#     verticalalignment='center', 
-#     transform = ax.transAxes,c='Black',fontsize=small)
-
-#     #exposure is in gram days but can change the title if it is larger
-#     if exposure >= 1e3 and exposure < 1e6:
-#         mass_unit_str = 'kg'
-#         exposure /= 1e3
-#     elif exposure < 1e3:
-#         mass_unit_str = 'g'
-
-#     elif exposure >= 1e6 and material != 'Si':
-#         mass_unit_str = 'tonne'
-#         exposure /= 1e6
-    
-
-
-    
-
-
-#     plt.title(f'Exposure = {exposure} {mass_unit_str}-days',fontsize=medium,y=1.03)
-
-
-   
-
-
-  
-#     cbar = fig.colorbar(CT1,extend=extend,norm=norm)
-#     cbar.ax.set_ylim(0,vmax)
-#     # cbar.ax.set_yticks([0,1,2,3,4,5])
-
-#     # cbar.ax.set_yticklabels(['0', '1','2','3','4','$\ge 5$'])
-#         # cbar.ax.set_yticklabels(['$< 10^{-6}$', '$1$', '$ > 10^6$'])
-#         # cbar.ax.set_ylim(1e-6,1e6)
-        
-
-#         # cbar = fig.colorbar(CT1,extend='both')
-#         # # cbar.ax.set_yticklabels(['$< 10^{-6}$', '$1$', '$ > 10^6$'])
-
-
-
-
-#     if FDMn == 0:
-#         xy = (50,2e-41)
-#         xysolar = (0.65,1e-37)
-#     else: 
-#         xy = (50,2e-36)
-#         xysolar = (0.65,3e-34)
-
-    
-#     if plotConstraints:
-#         plt.annotate('Current Constraints',xy,fontsize=small)
-#         plt.annotate('Solar Bounds',xysolar,fontsize=smallest)
-#     if savefig:
-#         savedir = f'/Users/ansh/Local/SENSEI/paper_writing/ModulationTheory/figures/{material}/'
-#         plt.savefig(f'{savedir}/Mod_Sensitivity_{location}_fdm{FDMn}_mat{material}_exp{exposure}{mass_unit_str}days_{ne}ebin.jpg')
-#     else:
-#         plt.show()
-#     plt.close()
-#     return
-
+                    
 
 def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVerne=True,fromFile=True,verbose=False,masses=None,sigmaEs=None,ne=1,shadeMFP=True,savefig=False,standardizeGrid = False,useQCDark=True,showProjection=False):
     from tqdm.autonotebook import tqdm
@@ -2310,18 +1148,11 @@ def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVern
        
 
     for fdm in [0,2]:
-        mini_mass_list = []
-        mini_famp_list = []
-        mini_cs_list = []
-        mini_amp_list = []
-        # for fdm in [0,2]:
+
         Masses,CrossSections,FractionalAmplitudes = getContourData(material,fdm,loc,fractional=True,useVerne=useVerne,fromFile=fromFile,verbose=verbose,getAll=getAll,masses=masses,sigmaEs=sigmaEs,ne=ne,useQCDark=useQCDark)
         Masses,CrossSections,Amplitudes = getContourData(material,fdm,loc,fractional=False,useVerne=useVerne,fromFile=fromFile,verbose=verbose,getAll=getAll,masses=masses,sigmaEs=sigmaEs,ne=ne,returnaverage=True,useQCDark=useQCDark)
         FractionalAmplitudes[np.isnan(FractionalAmplitudes)] = 0
-        # mini_mass_list.append(Masses)
-        # mini_cs_list.append(CrossSections)
-        # mini_famp_list.append(FractionalAmplitudes)
-        # mini_amp_list.append(Amplitudes)
+
         masses_list.append(Masses)
         cs_list.append(CrossSections)
         amp_list.append(Amplitudes)
@@ -2355,12 +1186,7 @@ def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVern
                 first_index = 1 #SUPL
                 fdm = 2
                 fdmstr = '$F_{\mathrm{DM}} = (\\alpha m_e/q)^2$'
-            # if j == 0 or j == 1:
-            #     second_index = 0 #FDM 1
-            #     fdm = 0
-            # else:
-            #     second_index = 1 #FDM q2
-            #     fdm = 2
+           
             current_ax = axes[i,j]
 
            
@@ -2551,64 +1377,7 @@ def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVern
 
 
 
-                # if i== 0:
-                #     yhigh = 1e-36
-                #     ylow = 1e-40
-
-
-                # elif i==1:
-                #     yhigh = 1e-36
-                #     ylow = 1e-41
-
-                # elif i==2:
-                #     yhigh=1e-36
-                #     ylow=1e-42
-                # if standardizeGrid:
-                    
-
-
-            # elif material == 'Xe' and fdm == 2 and ne == 1:
-                
-                
-                # if i ==0 :
-                #     yhigh = 1e-33
-                #     ylow = 1e-36
-
-
-                # elif i == 1:
-                #     yhigh = 1e-33
-                #     ylow = 1e-36
-
-                # elif i == 2:
-                #     yhigh=1e-34
-                #     ylow=1e-37
-
-                # if standardizeGrid:
-                #     yhigh=1e-34
-                #     ylow=1e-37
-
-            
-            # elif material == 'Xe' and fdm == 2 and ne == 2:
-                
-                
-            #     # if i== 0:
-            #     #     yhigh = 1e-36
-            #     #     ylow = 1e-40
-
-
-            #     # elif i==1:
-            #     #     yhigh = 1e-36
-            #     #     ylow = 1e-41
-
-            #     # elif i==2:
-            #     #     yhigh=1e-36
-            #     #     ylow=1e-42
-            #     # if standardizeGrid:
-                
-
-
-
-
+        
             
                 
             
@@ -2648,31 +1417,9 @@ def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVern
             cmap = modify_colormap(original_cmap,divisor=10)
 
 
-            #actual plotting
-            # if fractional:
-            #     background_filling = np.zeros_like(Amplitudes)
-            #     BF = current_ax.contourf(Masses,CrossSections,background_filling,norm=norm,cmap=cmap,extend=extend)
-            # elif not plotSignificance:
-            # background_filling = np.ones_like(Amplitudes)*1e-10
-            # BF = current_ax.contourf(Masses,CrossSections,background_filling,norm=norm,cmap=cmap,extend=extend)
-
             CT1 =  current_ax.contourf(Masses,CrossSections,Amplitudes,levs,norm=norm,cmap=cmap,extend=extend)
             
-            # CT1.cmap.set_under(camp(norm(vmin)))
-
-
-            # if fractional:
-            #     if max_amp < 2:
-            #         CT1.cmap.set_over(camp(norm(max_amp)))
-            #     else:
-            #         CT1.cmap.set_over(camp(norm(vmax)))
-            # else:
-            #     CT1.cmap.set_over(camp(norm(vmax)))
-
-
-            #plotting for contour labels
-            # CTFF = plt.contour(Masses,CrossSections,Amplitudes,levs,cmap=plt.get_cmap('binary'),linewidths=0)
-
+           
             if plotConstraints:
                 import sys
                 # sys.path.append('../../../limits/other_experiments/')
@@ -2727,15 +1474,6 @@ def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVern
 
 
 
-
-    #         bbox=dict(
-    #     boxstyle="round",  # Shape of the box
-    #     facecolor="wheat",  # Background color
-    #     edgecolor="black",  # Border color
-    #     linewidth=1,  # Border width
-    #     alpha=0.5,  # Transparency
-    #     pad=0.5,  # Padding between text and border
-    # )     
             import matplotlib.patches as patches
 
             if fdm == 0:
@@ -2757,10 +1495,6 @@ def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVern
             horizontalalignment='center',
             verticalalignment='center',
             transform = current_ax.transAxes,c='Black',fontsize=smaller,zorder=3)#,bbox=dict(boxstyle='round',edgecolor="black",linewidth=1,alpha=1,pad=0.2,facecolor='white'))
-            # current_ax.text(0.02, 0.16, fdm_str,
-            # horizontalalignment='left',
-            # verticalalignment='center', 
-            # transform = current_ax.transAxes,c='Black',fontsize=small,zorder=3)#,bbox=dict(boxstyle='round',edgecolor="black",linewidth=1,alpha=1,pad=0.2,facecolor='white'))
 
             e_bin_str = f'{ne}' + '$e^-$ bin'
             current_ax.text(e_xpos, e_ypos, e_bin_str,
@@ -2768,10 +1502,7 @@ def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVern
             verticalalignment='center', 
             transform = current_ax.transAxes,c='Black',fontsize=smaller,zorder=3)#,bbox=dict(boxstyle='round',edgecolor="black",linewidth=1,alpha=1,pad=0.2,facecolor='white'))
 
-            # 
 
-            # print(exp_str,exposure)
-            # print(exp_str >=1e3)
             time_unit = time_unit_strs[i]
             exp_str = exposures[i] / time_units[material][i]
             exp_str = np.round(exp_str)
@@ -2789,20 +1520,11 @@ def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVern
         
             exp_str = int(exp_str)
             exposure_str = f'{exp_str} {mass_unit_str}-{time_unit}'
-            # if material == 'Ar' and i == 2:
-            #     exposure_str = f'17.4 tonne-years'
 
             current_ax.text(0.98, 0.05, exposure_str,
             horizontalalignment='right',
             verticalalignment='center',
             transform = current_ax.transAxes,c='Black',fontsize=small,bbox=dict(boxstyle='square',edgecolor="black",linewidth=1,alpha=1,pad=0.2,facecolor='white'))
-
-
-
-           
-
-            # current_ax.set_title(f'Modulation Significance Curves',fontsize=medium,y=1.03)
-
 
             
             if shadeMFP:
@@ -2833,9 +1555,7 @@ def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVern
                     MFP.append(MFP_small)
                 MFP = np.array(MFP)
 
-                # shade = np.zeros_like(MFP,dtype=bool)
-                # shade[MFP < 1] = True
-                # shade[MFP>=1] = False
+               
                 X,Y = np.meshgrid(mX_grid_mfp,sigmaE_grid_mpf)
                 shade = np.ma.masked_where(MFP > 1, MFP)
 
@@ -2844,37 +1564,12 @@ def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVern
                 
 
             
-                # cbar.ax.set_yticklabels(['$< 10^{-6}$', '$1$', '$ > 10^6$'])
-                # cbar.ax.set_ylim(1e-6,1e6)
-                
-
-                # cbar = fig.colorbar(CT1,extend='both')
-                # # cbar.ax.set_yticklabels(['$< 10^{-6}$', '$1$', '$ > 10^6$'])
-
-            
-        
 
 
     cax,kw = matplotlib.colorbar.make_axes([ax for ax in axes.flat])
-    # if fractional:
-    #     # max_vis_amp = np.round(np.max(temp_amps),2)
-    #     # print(max_vis_amp)
-    #     # if np.max(temp_amp) > 1:
-    #     cbar = fig.colorbar(CT1, cax=cax,extend=extend,norm=norm,**kw)
-    #         # cbar = current_ax.cax.colorbar(CT1,)
-    #         # cbar.ax.set_yticklabels(['0', '$1$', f'$>2$'])
-    #         # cbar.ax.set_ylim(0,2)
-    #         # cbar = current_ax.cax.colorbar(CT1,extend=extend,ticks=[0,max_vis_amp],norm=norm)
-          
-    #     # cbar = fig.colorbar(CT1,extend=extend,norm=norm)
 
-
-    # else:
-        # cbar = current_ax.cax.colorbar(CT1,ticks=[1e-6,1e0,1e6],extend=extend,norm=norm)
     cbar = fig.colorbar(CT1, cax=cax,extend=extend,norm=norm,**kw)
 
-        # cbar.ax.set_yticklabels(['$< 10^{-6}$', '$1$', '$ > 10^6$'])
-        # cbar.ax.set_ylim(1e-6,1e6)
     cbar.ax.tick_params(labelsize=large)
     if savefig:
         mat_str_dict = {
@@ -2889,7 +1584,6 @@ def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVern
         tag = 'verne' if useVerne else 'damascus'
         plt.savefig(f'{savedir}/Mod_Sensitivity_{material}_CombinedFig_{ne}ebin_loc{loc}_{tag}.jpg')
 
-    # plt.tight_layout()
     plt.show()
     plt.close()
     return 
@@ -3019,13 +1713,6 @@ def plotMaterialSeasonalSignificanceComparison(fdm,loc,material='Si',plotConstra
         FractionalAmplitudes[np.isnan(FractionalAmplitudes)] = 0
         Significance = (FractionalAmplitudes*Amplitudes) / np.sqrt((Amplitudes + background_rate))
 
-        # mini_mass_list.append(Masses)
-        # mini_cs_list.append(CrossSections)
-        # mini_famp_list.append(FractionalAmplitudes)
-        # mini_amp_list.append(Amplitudes)
-
-
-        
         if i == 0:
             ls= '-'
         else:
@@ -3178,64 +1865,6 @@ def plotMaterialSeasonalSignificanceComparison(fdm,loc,material='Si',plotConstra
                     ylow = 1e-38
             
 
-        
-
-
-
-            # if i== 0:
-            #     yhigh = 1e-36
-            #     ylow = 1e-40
-
-
-            # elif i==1:
-            #     yhigh = 1e-36
-            #     ylow = 1e-41
-
-            # elif i==2:
-            #     yhigh=1e-36
-            #     ylow=1e-42
-            # if standardizeGrid:
-                
-
-
-        # elif material == 'Xe' and fdm == 2 and ne == 1:
-            
-            
-            # if i ==0 :
-            #     yhigh = 1e-33
-            #     ylow = 1e-36
-
-
-            # elif i == 1:
-            #     yhigh = 1e-33
-            #     ylow = 1e-36
-
-            # elif i == 2:
-            #     yhigh=1e-34
-            #     ylow=1e-37
-
-            # if standardizeGrid:
-            #     yhigh=1e-34
-            #     ylow=1e-37
-
-        
-        # elif material == 'Xe' and fdm == 2 and ne == 2:
-            
-            
-        #     # if i== 0:
-        #     #     yhigh = 1e-36
-        #     #     ylow = 1e-40
-
-
-        #     # elif i==1:
-        #     #     yhigh = 1e-36
-        #     #     ylow = 1e-41
-
-        #     # elif i==2:
-        #     #     yhigh=1e-36
-        #     #     ylow=1e-42
-        #     # if standardizeGrid:
-            
 
 
 
@@ -3283,21 +1912,12 @@ def plotMaterialSeasonalSignificanceComparison(fdm,loc,material='Si',plotConstra
         cmap = modify_colormap(original_cmap,divisor=divisor)
 
 
-        #actual plotting
-        # if fractional:
-        #     background_filling = np.zeros_like(Amplitudes)
-        #     BF = current_ax.contourf(Masses,CrossSections,background_filling,norm=norm,cmap=cmap,extend=extend)
-        # elif not plotSignificance:
-        # background_filling = np.ones_like(Amplitudes)*1e-10
-        # BF = current_ax.contourf(Masses,CrossSections,background_filling,norm=norm,cmap=cmap,extend=extend)
-        # CT =  current_ax.contour(Masses,CrossSections,Significance,levs,alpha=0.9)
-
+     
         CT1 =  current_ax.contourf(Masses,CrossSections,Significance,levs,norm=norm,cmap=cmap,extend=extend,alpha=0)
         two_sigma = CT1.allsegs[2][0]
         current_ax.plot(two_sigma[:, 0][280:-800], two_sigma[:, 1][280:-800], color=northcolor,lw=3,ls=ls,label='2$\sigma$')
         five_sigma = CT1.allsegs[-1][0]
         current_ax.plot(five_sigma[:, 0], five_sigma[:, 1], color='black',lw=3,ls=ls,label='5$\sigma$')
-    # current_ax.legend()
     import matplotlib.lines as mlines
 
     red = mlines.Line2D([], [], color='black', label='5$\sigma$')
@@ -3310,21 +1930,7 @@ def plotMaterialSeasonalSignificanceComparison(fdm,loc,material='Si',plotConstra
     solid = mlines.Line2D([], [], color='black', label='March')
     legend2 = current_ax.legend(handles=[solid, dashed], fontsize=medium, loc='center right',frameon=False)
 
-    # CT1.cmap.set_under(camp(norm(vmin)))
-
-
-    # if fractional:
-    #     if max_amp < 2:
-    #         CT1.cmap.set_over(camp(norm(max_amp)))
-    #     else:
-    #         CT1.cmap.set_over(camp(norm(vmax)))
-    # else:
-    #     CT1.cmap.set_over(camp(norm(vmax)))
-
-
-    #plotting for contour labels
-    # CTFF = plt.contour(Masses,CrossSections,Amplitudes,levs,cmap=plt.get_cmap('binary'),linewidths=0)
-
+    
     if plotConstraints:
         import sys
         # sys.path.append('../../../limits/other_experiments/')
@@ -3374,18 +1980,6 @@ def plotMaterialSeasonalSignificanceComparison(fdm,loc,material='Si',plotConstra
 
         
 
-
-
-
-
-#         bbox=dict(
-#     boxstyle="round",  # Shape of the box
-#     facecolor="wheat",  # Background color
-#     edgecolor="black",  # Border color
-#     linewidth=1,  # Border width
-#     alpha=0.5,  # Transparency
-#     pad=0.5,  # Padding between text and border
-# )     
     import matplotlib.patches as patches
 
     if fdm == 0:
@@ -3408,40 +2002,20 @@ def plotMaterialSeasonalSignificanceComparison(fdm,loc,material='Si',plotConstra
     horizontalalignment='center',
     verticalalignment='center',
     transform = current_ax.transAxes,c='Black',fontsize=smaller,zorder=3)#,bbox=dict(boxstyle='round',edgecolor="black",linewidth=1,alpha=1,pad=0.2,facecolor='white'))
-    # current_ax.text(0.02, 0.16, fdm_str,
-    # horizontalalignment='left',
-    # verticalalignment='center', 
-    # transform = current_ax.transAxes,c='Black',fontsize=small,zorder=3)#,bbox=dict(boxstyle='round',edgecolor="black",linewidth=1,alpha=1,pad=0.2,facecolor='white'))
-
+   
     e_bin_str = f'{ne}' + '$e^-$ bin'
     current_ax.text(e_xpos, e_ypos, e_bin_str,
     horizontalalignment='center',
     verticalalignment='center', 
     transform = current_ax.transAxes,c='Black',fontsize=smaller,zorder=3)#,bbox=dict(boxstyle='round',edgecolor="black",linewidth=1,alpha=1,pad=0.2,facecolor='white'))
 
-    # 
-
-    # print(exp_str,exposure)
-    # print(exp_str >=1e3)
-    
-
-
-    
-
-    
-    # if material == 'Ar' and i == 2:
-    #     exposure_str = f'17.4 tonne-years'
-
+  
     current_ax.text(0.98, 0.05, exposure_str,
     horizontalalignment='right',
     verticalalignment='center',
     transform = current_ax.transAxes,c='Black',fontsize=small,bbox=dict(boxstyle='square',edgecolor="black",linewidth=1,alpha=1,pad=0.2,facecolor='white'))
 
 
-
-    
-
-    # current_ax.set_title(f'Modulation Significance Curves',fontsize=medium,y=1.03)
 
 
     
@@ -3483,39 +2057,6 @@ def plotMaterialSeasonalSignificanceComparison(fdm,loc,material='Si',plotConstra
 
         
 
-    
-        # cbar.ax.set_yticklabels(['$< 10^{-6}$', '$1$', '$ > 10^6$'])
-        # cbar.ax.set_ylim(1e-6,1e6)
-        
-
-        # cbar = fig.colorbar(CT1,extend='both')
-        # # cbar.ax.set_yticklabels(['$< 10^{-6}$', '$1$', '$ > 10^6$'])
-
-    
-
-
-
-# cax,kw = matplotlib.colorbar.make_axes([ax for ax in axes.flat])
-# if fractional:
-#     # max_vis_amp = np.round(np.max(temp_amps),2)
-#     # print(max_vis_amp)
-#     # if np.max(temp_amp) > 1:
-#     cbar = fig.colorbar(CT1, cax=cax,extend=extend,norm=norm,**kw)
-#         # cbar = current_ax.cax.colorbar(CT1,)
-#         # cbar.ax.set_yticklabels(['0', '$1$', f'$>2$'])
-#         # cbar.ax.set_ylim(0,2)
-#         # cbar = current_ax.cax.colorbar(CT1,extend=extend,ticks=[0,max_vis_amp],norm=norm)
-        
-#     # cbar = fig.colorbar(CT1,extend=extend,norm=norm)
-
-
-# else:
-    # cbar = current_ax.cax.colorbar(CT1,ticks=[1e-6,1e0,1e6],extend=extend,norm=norm)
-# cbar = fig.colorbar(CT1, cax=cax,extend=extend,norm=norm,**kw)
-
-    # cbar.ax.set_yticklabels(['$< 10^{-6}$', '$1$', '$ > 10^6$'])
-    # cbar.ax.set_ylim(1e-6,1e6)
-# cbar.ax.tick_params(labelsize=large)
     if savefig:
         mat_str_dict = {
             'Si': 'Silicon',
@@ -3551,16 +2092,7 @@ def plotModulationFigure(fdm,fractional=False,plotConstraints=True,useVerne=True
     smaller = 32
     smallest=16
     set_default_plotting_params(fontsize=large)
-    # params = {'text.usetex' : True,
-    #     'font.size' : medium,
-    #         'font.family' : 'cmr10',
-    #         'figure.autolayout': True
-    #     }
-    # plt.rcParams.update(params)
-    # plt.rcParams['axes.unicode_minus']=False
-    # plt.rcParams['axes.labelsize']=32
-    # plt.rcParams['figure.figsize']=(26,26)
-    # plt.rcParams['axes.formatter.use_mathtext']=True
+    
     ncols = 2
     nrows = 3
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, sharex=False, sharey=False,layout='constrained',figsize=(26,26))
@@ -3702,8 +2234,7 @@ def plotModulationFigure(fdm,fractional=False,plotConstraints=True,useVerne=True
                     high = 3
 
                 
-                # levs = np.arange(low,high) 
-                # levs = np.power(10.,levs)
+    
                 
                 vminexp = -6
                 vmaxexp = 6
@@ -3715,50 +2246,29 @@ def plotModulationFigure(fdm,fractional=False,plotConstraints=True,useVerne=True
                 divisor = len(levs)
     
 
-                # norm =colors.LogNorm(vmin=vmin,vmax=vmax)
                 norm =colors.LogNorm(vmin=vmin,vmax=vmax)
                 extend = 'both'
             cmap = 'Spectral_r'#diverging
             cmap = 'Reds'#sequential
             original_cmap = cmap
-            # if fractional:
-            #     cmap = modify_colormap(original_cmap,divisor=divisor)
+ 
 
-
-            #actual plotting
-            # if fractional:
-            #     background_filling = np.zeros_like(Amplitudes)
-            #     BF = current_ax.contourf(Masses,CrossSections,background_filling,norm=norm,cmap=cmap,extend=extend)
-            # elif not plotSignificance:
+           
             background_filling = np.ones_like(Amplitudes)*1e-10
-            # BF = current_ax.contourf(Masses,CrossSections,background_filling,norm=norm,cmap=cmap,extend=extend)
 
             CT1 =  current_ax.contourf(Masses,CrossSections,Amplitudes,levs,norm=norm,cmap=cmap,extend=extend)
             CT1.cmap.set_under(color='white')
 
 
-            # if fractional:
-            #     if max_amp < 2:
-            #         CT1.cmap.set_over(camp(norm(max_amp)))
-            #     else:
-            #         CT1.cmap.set_over(camp(norm(vmax)))
-            # else:
-            #     CT1.cmap.set_over(camp(norm(vmax)))
-
-
-            #plotting for contour labels
-            # CTFF = plt.contour(Masses,CrossSections,Amplitudes,levs,cmap=plt.get_cmap('binary'),linewidths=0)
+          
 
             if plotConstraints:
                 import sys
-                # sys.path.append('../../../limits/other_experiments/')
                 sys.path.append('../limits/')
                 from Constraints import plot_constraints
                 
                 xsol,ysol = plot_constraints('Solar',fdm)
                 current_ax.plot(xsol,ysol,color='black',lw=3,ls='--')
-                # upper_boundary_sol=np.ones_like(ysol)*yhigh
-                # current_ax.fill_between(xsol,ysol,upper_boundary_sol,alpha=0.3, color='grey')
 
                 x,y = plot_constraints('All',fdm)
                 current_ax.plot(x,y,color='black',lw=3)
@@ -3799,10 +2309,6 @@ def plotModulationFigure(fdm,fractional=False,plotConstraints=True,useVerne=True
             horizontalalignment='center',
             verticalalignment='center',
             transform = current_ax.transAxes,c='Black',fontsize=small,zorder=3)#,bbox=dict(boxstyle='round',edgecolor="black",linewidth=1,alpha=1,pad=0.2,facecolor='white'))
-            # current_ax.text(0.02, 0.16, fdm_str,
-            # horizontalalignment='left',
-            # verticalalignment='center', 
-            # transform = current_ax.transAxes,c='Black',fontsize=small,zorder=3)#,bbox=dict(boxstyle='round',edgecolor="black",linewidth=1,alpha=1,pad=0.2,facecolor='white'))
 
             e_bin_str = f'{ne}' + '$e^-$ bin'
             current_ax.text(0.14, 0.13, e_bin_str,
@@ -3810,14 +2316,6 @@ def plotModulationFigure(fdm,fractional=False,plotConstraints=True,useVerne=True
             verticalalignment='center', 
             transform = current_ax.transAxes,c='Black',fontsize=small,zorder=3)#,bbox=dict(boxstyle='round',edgecolor="black",linewidth=1,alpha=1,pad=0.2,facecolor='white'))
 
-
-
-            # if fractional:
-            #     current_ax.set_title(f'Fractional Modulation Amplitude',fontsize=medium,y=1.03)
-
-            # else:
-            #     current_ax.set_title(f'Modulation Amplitude [Events/g/day]',fontsize=medium,y=1.03)
-          
 
             
             if shadeMFP:
@@ -3849,9 +2347,6 @@ def plotModulationFigure(fdm,fractional=False,plotConstraints=True,useVerne=True
                     MFP.append(MFP_small)
                 MFP = np.array(MFP)
 
-                # shade = np.zeros_like(MFP,dtype=bool)
-                # shade[MFP < 1] = True
-                # shade[MFP>=1] = False
                 X,Y = np.meshgrid(mX_grid_mfp,sigmaE_grid_mpf)
                 shade = np.ma.masked_where(MFP > 1, MFP)
 
@@ -3860,12 +2355,6 @@ def plotModulationFigure(fdm,fractional=False,plotConstraints=True,useVerne=True
                 
 
             
-                # cbar.ax.set_yticklabels(['$< 10^{-6}$', '$1$', '$ > 10^6$'])
-                # cbar.ax.set_ylim(1e-6,1e6)
-                
-
-                # cbar = fig.colorbar(CT1,extend='both')
-                # # cbar.ax.set_yticklabels(['$< 10^{-6}$', '$1$', '$ > 10^6$'])
 
             if fdm == 0:
                 xy = (40,2e-41)
@@ -3873,26 +2362,15 @@ def plotModulationFigure(fdm,fractional=False,plotConstraints=True,useVerne=True
             else: 
                 xy = (40,1e-36)
                 xysolar = (2,9e-34)
-            
-            # if plotConstraints:
-            #     current_ax.annotate('Current Constraints',xy,fontsize=smaller)
-            #     current_ax.annotate('Solar Bounds',xysolar,fontsize=smallest)
+          
 
 
 
 
     cax,kw = matplotlib.colorbar.make_axes([ax for ax in axes.flat])
     if fractional:
-        # max_vis_amp = np.round(np.max(temp_amps),2)
-        # print(max_vis_amp)
-        # if np.max(temp_amp) > 1:
+
         cbar = fig.colorbar(CT1, cax=cax,extend=extend,norm=norm,**kw)
-            # cbar = current_ax.cax.colorbar(CT1,)
-            # cbar.ax.set_yticklabels(['0', '$1$', f'$>2$'])
-            # cbar.ax.set_ylim(0,2)
-            # cbar = current_ax.cax.colorbar(CT1,extend=extend,ticks=[0,max_vis_amp],norm=norm)
-          
-        # cbar = fig.colorbar(CT1,extend=extend,norm=norm)
 
 
     else:
@@ -3931,198 +2409,6 @@ def find_exp(number) -> int:
     from math import log10, floor
     base10 = log10(number)
     return floor(base10)
-
-
-# def plotRateComparison(material,sigmaE,mX_list,fdm,plotVerne=True,savefig=False,savedir=None,verneOnly=False,damascusOnly=False,ne=1,useQCDark=True):
-#     import numpy as np
-#     # plotting specifications
-#     import matplotlib.pyplot as plt
-  
-#     #Options
-#     set_default_plotting_params(fontsize=40)
-   
-#     import matplotlib.cm as mplcm
-#     import matplotlib.colors as colors
-
-#     cmap = plt.get_cmap("tab10") # default color cycle, call by using color=cmap(i) i=0 is blue
-#     golden = (1 + 5 ** 0.5) / 2
-#     goldenx = 15
-#     goldeny = goldenx / golden
-#     fig = plt.figure(figsize=(16,14))
-
-
-#     plt.xlabel('$\Theta$\N{degree sign}')
-#     plt.ylabel('Rate [events/g/day]')
-#     plt.yscale('log')
-#     plt.grid()
-#     plt.title(f'{material} {ne}$e^-$ Rate vs Isoangle',fontsize=40)
-#     plt.xlim(0,180)
-#     # plt.ylim(1e-8,1e3)
-#     #reversed('RdBu')
-
-#     southx = np.linspace(89.26129275462549,164.8486791095454,50)
-#     southy1 = np.ones_like(southx)*1e14
-#     southy2 = np.zeros_like(southx)
-#     northx = np.linspace(6.039066639146133,81.33821611144151,50)
-#     northy1 = np.ones_like(northx)*1e14
-#     northy2 = np.zeros_like(northx)
-
-
-
-#     plt.fill_between(southx,southy1,southy2,color='grey',alpha=0.3)
-
-#     plt.fill_between(northx,northy1,northy2,color='grey',alpha=0.3)
-
-
-
-
-#     ax = plt.gca()
-#     if plotVerne:
-#         ls = ['-','--']
-#         dummy_lines = []
-#         for b_idx in [0,1]:
-#             dummy_lines.append(ax.plot([],[], c="black", ls = ls[b_idx])[0])
-#         legend2 = plt.legend([dummy_lines[i] for i in [0,1]], ["DaMaSCUS", "Verne"], loc=2,prop={'size': 32})
-#         ax.add_artist(legend2)
-
-#         # plt.annotate('10 MeV',(60,1.5e0*24),color=colorslist[2],fontsize=30)
-#         # plt.annotate('1 MeV',(60,2.24*2e-2),color=colorslist[1],fontsize=30)
-
-#         # plt.annotate('0.6 MeV',(60,24*1e-4),color=colorslist[0],fontsize=30)
-
-
-#     colorlist = ['steelblue','crimson','forestgreen','rebeccapurple']
-
-#     maxv = 0
-#     minv = 1e20
-
-
-#     for i,mX in enumerate(mX_list):
-#         if type(sigmaE) == list:
-#             sE = sigmaE[i]
-#         else:
-#             sE = sigmaE
-
-
-#         if not verneOnly:
-#             isoangles,rates = get_modulated_rates(material,mX,sE,fdm,useVerne=False,ne=ne,useQCDark=useQCDark)
-#             rates = rates * nu.kg *  nu.day
-#             isoangles,rates_high = get_modulated_rates(material,mX,sE,fdm,useVerne=False,calcError="High",ne=ne,useQCDark=useQCDark)
-#             rates_high = rates_high * nu.kg *  nu.day
-#             isoangles,rates_low = get_modulated_rates(material,mX,sE,fdm,useVerne=False,calcError="Low",ne=ne,useQCDark=useQCDark)
-#             rates_low = rates_low * nu.kg *  nu.day
-
-
-
-#             if maxv < np.max(rates_high):
-#                 maxv = np.max(rates_high)
-
-#             if minv > np.min(rates_low[:25]):
-#                 minv = np.min(rates_low[:25])
-
-
-#             rate_err = rates_high - rates
-
-#             plt.fill_between(isoangles,rates_low,rates_high,color=colorlist[i])
-#             x = isoangles[18]
-#             y = rates_high[18]*2.0
-#             plt.text(x,y,f'{mX} MeV',fontsize=30,color=colorlist[i],horizontalalignment='center',verticalalignment='center')
-
-#         if not damascusOnly:
-#             isoangles_v,rates_v = get_modulated_rates(material,mX,sE,fdm,useVerne=True,ne=ne,useQCDark=useQCDark)
-#             rates_v = rates_v * nu.kg *  nu.day
-
-
-
-#             plt.plot(isoangles_v,rates_v,ls='--',color=colorlist[i])
-
-#             if maxv < np.max(rates_v):
-#                 maxv = np.max(rates_v)
-#             if minv > np.min(rates_v[:25]):
-#                 minv = np.min(rates_v[:25])
-
-
-
-
-
-
-
-#         # try:
-#         #     angle_grid,fit_vector,parameters,errors = fitted_rates(isoangles,rates,rates_err=rate_err)
-            
-#         # except:
-#         #     try:
-#         #         angle_grid,fit_vector,parameters,errors = fitted_rates(isoangles,rate,rates_err=None)
-#         #         fitFailed_w_errors = True
-#         #     except:
-#         #         fitFailed = True
-#         # plt.tight_layout()
-
-#     minexp = find_exp(minv) - 1
-#     if minexp < -6:
-#         minexp = -6
-#     maxexp = find_exp(maxv) + 3
-
-#     print(minv,maxv,minexp,maxexp)
-
-#     yticks = np.arange(minexp,maxexp+1) 
-#     yticks = np.power(10.,yticks)
-
-#     plt.ylim(yticks[0],yticks[-1])
-#     plt.yticks(yticks)
-#     plt.setp(plt.gca().get_yticklabels()[::2], visible=False)
-
-
-#     plt.text(0.28,0.05,'SNOLAB ($46$\N{degree sign}N)',fontsize=30,color='grey',horizontalalignment='center',verticalalignment='center',transform = ax.transAxes)
-#     plt.text(0.72,0.05,'SUPL ($37$\N{degree sign}S)',fontsize=30,color='grey',horizontalalignment='center',verticalalignment='center',transform = ax.transAxes)
-#     if fdm == 2:
-#         fdm_str = '$F_{\mathrm{DM}} = \\alpha m_e / q^2$'
-#     elif fdm == 0:
-#         fdm_str = '$F_{\mathrm{DM}} = 1$'
-
-    
-    
-#     if type(sigmaE) == list:
-#         for i,sE in enumerate(sigmaE):
-#             sE_str = str(sE)
-#             sigmaE_str = '$\overline{\sigma}_e =$ ' + r'${} \times 10^{{{}}}$'.format(*sE_str.split('e')) + 'cm$^2$'
-#             ycoord = 0.86 - 0.07*i
-#             plt.text(0.99,ycoord,sigmaE_str,fontsize=32,color=colorlist[i],horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
-
-#     else:
-#         sE_str = str(sE)
-        
-#         sigmaE_str = '$\overline{\sigma}_e =$ ' + r'${} \times 10^{{{}}}$'.format(*sE_str.split('e')) + 'cm$^2$'
-#         plt.text(0.99,0.86,sigmaE_str,fontsize=32,color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
-#     plt.text(0.99,0.95,fdm_str,fontsize=32,color='black',horizontalalignment='right',verticalalignment='center',transform = ax.transAxes)
-    
-
-
-#     # yticks = np.arange(-8,3) 
-#     # yticks = np.power(10.,yticks)
-#     # plt.yticks(yticks)
-#     # plt.setp(plt.gca().get_yticklabels()[::2], visible=False)
-
-#     plt.xticks(np.linspace(0,180,19)[::2])
-#     if savefig:
-#         if savedir is None:
-#              mat_str_dict = {
-#             'Si': 'Silicon',
-#             'Xe': 'Xenon',
-#             'Ar': 'Argon',
-#         }
-#         matstr = mat_str_dict[material]
-#         savedir = f'figures/{matstr}'
-#         file = f'{material}_Rates_Comparison_FDM{fdm}.pdf'
-#         savefile = savedir+file
-#         plt.savefig(savefile)
-
-#     plt.show()
-
-#     plt.close()
-
-
-
 
             
 def plotRateComparisonSubplots(material,sigmaE_list,mX_list,fdm,plotVerne=True,savefig=False,savedir=None,verneOnly=False,damascusOnly=False,ne=1,showScatter=False,showFit=False,useQCDark=True,showErr=False):
@@ -4258,9 +2544,9 @@ def plotRateComparisonSubplots(material,sigmaE_list,mX_list,fdm,plotVerne=True,s
                 minv = np.min(rates_v)
 
         if showScatter:
-            if (material == 'Ar' or material == 'Xe') and fdm == 2 or (fdm == 0 and (i ==0 or i ==1) and (material == 'Ar' or material == 'Xe')) or (material == 'Si' and (i ==0 or i == 2) and fdm == 0) or (material == 'Si' and (i ==1 or i == 2) and fdm == 2):# or (material == 'Si' and i ==0 and fdm == 2): 
+            if (material == 'Ar' or material == 'Xe') and fdm == 2 or (fdm == 0 and (i ==0 or i ==1) and (material == 'Ar' or material == 'Xe')) or (material == 'Si' and (i == 2) and fdm == 0) or (material == 'Si' and (i ==1 or i == 2) and fdm == 2):# or (material == 'Si' and i ==0 and fdm == 2): 
                 current_ax.legend(loc='upper left',prop={'size': small})
-            elif material == 'Si' and i ==0 and fdm == 2:
+            elif material == 'Si' and i ==0:
                 current_ax.legend(loc='center left',prop={'size': small})
             else:
                 current_ax.legend(loc='center right',prop={'size': small})
@@ -4289,16 +2575,9 @@ def plotRateComparisonSubplots(material,sigmaE_list,mX_list,fdm,plotVerne=True,s
         current_ax.text(0.99,0.95,fdm_str,fontsize=small,color='black',horizontalalignment='right',verticalalignment='center',transform = current_ax.transAxes)
         current_ax.text(0.99,0.77,mX_str,fontsize=small,color='black',horizontalalignment='right',verticalalignment='center',transform = current_ax.transAxes)
         
-        # if material == 'Si':
-        #     minv*=0.8
-        #     maxv*=1.2
-        # else:
+
         minv*=0.9
         maxv*=1.1
-        # yticks = np.arange(-8,3) 
-        # yticks = np.power(10.,yticks)
-        # plt.yticks(yticks)
-        # plt.setp(plt.gca().get_yticklabels()[::2], visible=False)
 
         current_ax.set_xticks(np.linspace(0,180,19)[::2])
         current_ax.set_ylim(minv,maxv)
@@ -4369,26 +2648,19 @@ def plotMeanFreePath(FDMn,plotConstraints=True,cmap_name='viridis'):
 
 
     cmap = plt.get_cmap(cmap_name) # default color cycle, call by using color=cmap(i) i=0 is blue
-    #reversed('RdBu')
 
 
     color_re = 'black'
 
 
 
-    #formatting
-    # fig, ax = plt.subplots(figsize=(15,10))
 
     golden = (1 + 5 ** 0.5) / 2
     goldenx = 16
     goldeny = goldenx / golden
     plt.figure(figsize=(goldenx,goldeny))
 
-    # plt.figure(figsize=(12,12))
 
-
-    # plt.ylim(np.min(sigmaEs),np.max(sigmaEs))
-    # plt.xlim(np.min(mX_array),np.max(mX_array))
     plt.xlim(0.6,1000)
     
     plt.xscale('log')
@@ -4420,10 +2692,6 @@ def plotMeanFreePath(FDMn,plotConstraints=True,cmap_name='viridis'):
     #plotting
 
 
-
-
-    # X,Y = np.meshgrid(mX_array,sigmaEs)
-
     lower = np.floor(np.log10(MFP.min())-1)
     upper = np.ceil(np.log10(MFP.max())+1)
     num_steps = 100
@@ -4453,39 +2721,13 @@ def plotMeanFreePath(FDMn,plotConstraints=True,cmap_name='viridis'):
     evenlevs = clevs[1::2]
     if 1e0 in oddlevs:
 
-    # clevs = [1.e-6,1.e-4,1.e-02, 1.e+00, 1.e+02, 1.e+04,1.e+06]
         newlevs = oddlevs[oddlevs> 1e-6]
     else:
         newlevs = evenlevs[evenlevs> 1e-6]
         
     plt.clabel(CTL_MFP,newlevs, fmt=fmt)
 
-    # ax.set_xlim(np.min(mX_array),np.max(best_c_x))
-
-
-    # ax.plot(mX_array,mfp_1y,color='black',lw=1)
-
-    # ax.plot(light_limx,sensei_func(light_limx),color='blue',lw=5)
-
-
-    # solar_light_bound = np.loadtxt('../../../limits/other_experiments/DM-e-FDMq2/SolarReflection_XE1T_S2_FDMq2_210810332.csv',delimiter=',')
-    # solarbx = solar_light_bound[:,0]
-
-    # solarby= solar_light_bound[:,1]
-
-    # solarby = solarby[np.argsort(solarbx)]
-    # solarbx = solarbx[np.argsort(solarbx)]
-
-    # ax.plot(solarbx,solarby,color='grey',lw=3)
-    # ax.fill_between(solarbx,solarby,1e-29,color='gray',alpha=0.3)
-
-
-    # ax.fill_between(damic_limx,damic_limy,1e-29,color='gray',alpha=0.3)
-
-    # plt.colorbar()
-    # CS = ax.contour(X,Y,MFP_light)
-    # ax.clabel(CS,inline=True)
-
+   
     if plotConstraints:
         import sys
         sys.path.append('../limits/')
@@ -4546,7 +2788,7 @@ def plotLocationExposure(address1,address2,savefig=True):
     th=np.arange(0,sidereal_day,0.001) #change to sidereal day, finer bin
     t=[]
     for i in th:
-        t.append(Time('2025-1-1 00:00:00')+i*u.hour)
+        t.append(Time('2025-3-8 00:00:00')+i*u.hour)
 
     wind=SkyCoord(l=90*u.deg,b=0*u.deg,frame="galactic")
 
@@ -4564,7 +2806,7 @@ def plotLocationExposure(address1,address2,savefig=True):
     # fig, ax = plt.subplots(2)
     colorlist = [northcolor,southcolor]
 
-    plt.figure(figsize=(15, 7),dpi=80)
+    plt.figure(figsize=(15, 5),dpi=80)
     plt.subplot(1,2,1)
     plt.plot(th,isoloc1,label=address1,color=colorlist[0],lw=2)
 
@@ -4574,7 +2816,7 @@ def plotLocationExposure(address1,address2,savefig=True):
     plt.ylim(-5,185)
     plt.legend()
     plt.ylabel("Isoangle [degrees]")
-    plt.xlabel("UTC time of day on January 1st 2025 [hours]")
+    plt.xlabel("UTC time of day on March 8th 2025 [hours]")
     plt.grid()
     ax=plt.gca()
     ax.xaxis.set_ticks(np.arange(0, 24.01, 4))
@@ -4665,6 +2907,7 @@ def find_sigma_cross_section(material,FDMn,test_mX,test_exposure,background,ne=1
 
     significances = significances[np.argsort(true_cs)]
     true_cs = np.sort(true_cs)
+
 
 
     if plot:

@@ -164,7 +164,7 @@ def ThetaIso(loc,n):
     angle = np.arccos(dot_product)
     return angle
 
-
+#Here is where locations are defined. Feel free to add more using the same format
 brc=EarthLocation.of_address('San Carlos de Bariloche, Argentina')
 sg=EarthLocation.of_address('Sierra Grande, Argentina')
 fnal=EarthLocation.of_address('Fermilab, USA')
@@ -174,7 +174,6 @@ modane=EarthLocation.of_address('Modane, France')
 soudan=EarthLocation.of_address('Soudan, USA')
 stawell  = EarthLocation.of_address('Stawell, Australia')
 capetown  = EarthLocation.of_address('Cape Town, Africa')
-
 # lat [rad], lon [rad], depth [km]
 sites = {'BRC': {'loc':[brc.lat.to_value('radian'), brc.lon.to_value('radian'), 0]}, \
          'SG': {'loc':[sg.lat.to_value('radian'), sg.lon.to_value('radian'), 0.4]}, \
