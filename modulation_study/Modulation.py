@@ -6,6 +6,18 @@ northcolor='#2E88D1'
 southcolor='#D1772E'
 
 def set_default_plotting_params(fontsize=40):
+    """Set default matplotlib plotting parameters for consistent figure styling.
+    
+    Args:
+        fontsize (int): Base font size to use for all text elements (default: 40)
+        
+    Sets rcParams for:
+        - LaTeX text rendering
+        - Font family and size
+        - Figure autolayout
+        - Figure size
+        - Unicode minus sign handling
+    """
 
     import matplotlib
     import matplotlib.pyplot as plt
@@ -30,6 +42,29 @@ def set_default_plotting_params(fontsize=40):
 
 
 def get_modulated_rates(material,mX,sigmaE,fdm,ne,useVerne=True,calcError=None,useQCDark=True,DoScreen = True,verbose = False,flat=False,dmRateObject = None,summer=False):
+    """Calculate modulated DM-electron scattering rates for given parameters.
+    
+    Args:
+        material (str): Target material ('Si', 'Xe', 'Ar')
+        mX (float): DM mass in MeV
+        sigmaE (float): DM-electron cross section in cm^2
+        fdm (int): Form factor model (0=FDM1, 2=FDMq2)
+        ne (int/list): Electron bin(s) to calculate rates for
+        useVerne (bool): Use Verne velocity distribution (default True)
+        calcError (str/None): Calculate error (only applies to DaMaSCUS (useVerne=False)) ('High'/'Low') (default None)
+        useQCDark (bool): Use QCDark form factor (default True)
+        DoScreen (bool): Include screening effects (default True)
+        verbose (bool): Print debug info (default False)
+        flat (bool): Return results based on shm velocity distribution without modulation (default False)
+        dmRateObject: Pre-initialized DMeRate object (default None)
+        summer (bool): Use summer velocity distribution (default False)
+        
+    Returns:
+        tuple: (isoangles, rate_per_angle) where:
+            isoangles: Array of isotropy angles in degrees
+            rate_per_angle: 2D array of rates (angles × electron bins)
+    """
+
     import os
     import torch
     import sys
@@ -106,6 +141,20 @@ def get_modulated_rates(material,mX,sigmaE,fdm,ne,useVerne=True,calcError=None,u
     
     
 def generate_modulated_rates(material,FDMn,useQCDark = True,useVerne=True,calcError=None,doScreen=True,overwrite=False,verbose=False,save=True,summer=False):
+    """Generate and save modulated rate data for a range of masses and cross-sections.
+    
+    Args:
+        material (str): Target material ('Si', 'Xe', 'Ar')
+        FDMn (int): Form factor model (0=FDM1, 2=FDMq2)
+        useQCDark (bool): Use QCDark form factor (default True)
+        useVerne (bool): Use Verne velocity distribution (default True)
+        calcError (str/None): Calculate error ('High'/'Low') (default None, only applies if UseVerne=False)
+        doScreen (bool): Include screening effects (default True)
+        overwrite (bool): Overwrite existing files (default False)
+        verbose (bool): Print debug info (default False)
+        save (bool): Save results to files (default True)
+        summer (bool): Use summer velocity distribution (default False)
+    """
     import csv
     import re
     import numpy as np
@@ -207,6 +256,21 @@ def generate_modulated_rates(material,FDMn,useQCDark = True,useVerne=True,calcEr
     return
 
 def generate_damascus_rates_with_error(ne,material,FDMn,useQCDark = True,DoScreen=True,overwrite=False,verbose=False,save=True,fit=False,summer=False):
+    """Generate modulated rates with error estimates for a specific electron bin.
+    
+    Args:
+        ne (int): Electron bin to calculate
+        material (str): Target material ('Si', 'Xe', 'Ar')
+        FDMn (int): Form factor model (0=FDM1, 2=FDMq2)
+        useQCDark (bool): Use QCDark form factor (default True)
+        DoScreen (bool): Include screening effects (default True)
+        overwrite (bool): Overwrite existing files (default False)
+        verbose (bool): Print debug info (default False)
+        save (bool): Save results to files (default True)
+        fit (bool): Fit rates to functional form (default False)
+        summer (bool): Use summer velocity distribution (default False)
+    """
+
     import csv
     import re
     import numpy as np
@@ -310,6 +374,14 @@ def generate_damascus_rates_with_error(ne,material,FDMn,useQCDark = True,DoScree
 
 
 def to_pretty_scientific_notation(num_str):
+    """Convert a number string to pretty-printed scientific notation for plots.
+    
+    Args:
+        num_str (str/number): Input number to format
+        
+    Returns:
+        str: Formatted string with proper LaTeX math notation
+    """
     import numpy as np
     num = float(num_str)
     coeff, exp = f"{num:.2e}".split("e")
@@ -325,15 +397,43 @@ def to_pretty_scientific_notation(num_str):
 
 
 def hyp_tan_ff(theta,a,theta_0,theta_s,ff):
-        import numpy as np
-        #rbar is mean
-        #a = amplitude
-        #theta is angle
-        #theta_0 is transition angle
-        #theta_s is slope fit
-        return (a/2)*np.tanh((theta-theta_0)/theta_s) + ff
+    """Hyperbolic tangent function for fitting modulated rates.
+    
+    Args:
+        theta: Angle values
+        a: Amplitude parameter
+        theta_0: Transition angle parameter  
+        theta_s: Slope parameter
+        ff: Offset parameter
+        
+    Returns:
+        Array of function values
+    """
+    import numpy as np
+    #rbar is mean
+    #a = amplitude
+    #theta is angle
+    #theta_0 is transition angle
+    #theta_s is slope fit
+    return (a/2)*np.tanh((theta-theta_0)/theta_s) + ff
 
 def fitted_rates(angles,rates,rates_err=None,linear=False):
+    """Fit modulated rate data to functional form (hyperbolic tangent or linear).
+    
+    Args:
+        angles: Array of angle values
+        rates: Array of rate values
+        rates_err: Array of rate errors (optional)
+        linear: Force linear fit (default False)
+        
+    Returns:
+        tuple: (angle_grid, fit_vector, parameters, errors) containing:
+            angle_grid: Fine grid of angles
+            fit_vector: Fit results and metrics
+            parameters: Fit parameters
+            errors: Parameter errors
+    """
+
     import numpy as np
     from scipy.stats import linregress
     
@@ -446,6 +546,16 @@ def fitted_rates(angles,rates,rates_err=None,linear=False):
 
 
 def plot_damascus_output(test_mX,FDMn,cross_section,long=True,savefig=False,cmap_name='viridis'):
+    """Plot eta(vmin) for different angles from DaMaSCUS output (for demonstration purposes).
+    
+    Args:
+        test_mX: DM mass in MeV
+        FDMn: Form factor model (0=FDM1, 2=FDMq2)
+        cross_section: Cross section in cm^2
+        long: Use long simulation data (180 points instead of 36) (default True)
+        savefig: Save figure to file (default False)
+        cmap_name: Colormap name (default 'viridis')
+    """
     import os
     import numpy as np
     import matplotlib.pyplot as plt
@@ -544,6 +654,16 @@ def plot_damascus_output(test_mX,FDMn,cross_section,long=True,savefig=False,cmap
 
 
 def plot_damascus_figure(test_mX,cross_section,long=True,savefig=False,cmap_name='viridis'):
+    """Comparative plot of eta(vmin) for both form factors.
+    
+    Args:
+        test_mX: DM mass in MeV
+        cross_section: Cross section in cm^2
+        long: Use long simulation data (default True)
+        savefig: Save figure to file (default False)
+        cmap_name: Colormap name (default 'viridis')
+    """
+
     import os
     import numpy as np
     import matplotlib.pyplot as plt
@@ -650,6 +770,14 @@ def plot_damascus_figure(test_mX,cross_section,long=True,savefig=False,cmap_name
 
 
 def mu_Xe(mX):
+    """Calculate reduced mass for DM-electron system.
+    
+    Args:
+        mX: DM mass in MeV
+        
+    Returns:
+        Reduced mass in eV
+    """
     me_eV = 5.1099894e5
     """
     DM-electron reduced mass
@@ -657,14 +785,27 @@ def mu_Xe(mX):
     return mX*me_eV/(mX+me_eV)
 
 def mu_XP(mX):
-
-    """
-    DM-proton reduced mass
+    """Calculate reduced mass for DM-proton system.
+    
+    Args:
+        mX: DM mass in MeV
+        
+    Returns:
+        Reduced mass in eV
     """
     mP_eV = 938.27208816 *1e6
     return mX*mP_eV/(mX+mP_eV)
 
 def sigmaE_to_sigmaP(sigmaE,mX):
+    """Convert DM-electron to DM-proton cross section.
+    
+    Args:
+        sigmaE: DM-electron cross section in cm^2
+        mX: DM mass in MeV
+        
+    Returns:
+        DM-proton cross section in cm^2
+    """
     import numpy as np
     mX*=1e6 #eV
     sigmaP = sigmaE*(mu_XP(mX)/mu_Xe(mX))**2
@@ -672,6 +813,16 @@ def sigmaE_to_sigmaP(sigmaE,mX):
     return sigmaP
 
 def sigmaP_to_sigmaE(sigmaP,mX):
+    """Convert DM-proton to DM-electron cross section.
+    
+    Args:
+        sigmaP: DM-proton cross section in cm^2
+        mX: DM mass in MeV
+        
+    Returns:
+        DM-electron cross section in cm^2
+    """
+
     import numpy as np
     mX*=1e6 #eV
     sigmaE = sigmaP*(mu_Xe(mX)/mu_XP(mX))**2
@@ -679,6 +830,17 @@ def sigmaP_to_sigmaE(sigmaP,mX):
     return sigmaE
 
 def get_damascus_output(mX,sigmaE,FDMn):
+    """Load eta(vmin) data from DaMaSCUS output files.
+    
+    Args:
+        mX: DM mass in MeV
+        sigmaE: Cross section in cm^2
+        FDMn: Form factor model (0=FDM1, 2=FDMq2)
+        
+    Returns:
+        List of (vmin, eta) arrays for each angle
+    """
+
     import numpy as np
     import os
     if FDMn == 0:
@@ -701,6 +863,15 @@ def get_damascus_output(mX,sigmaE,FDMn):
 
 
 def get_angle_limits(loc,date=[8,8,2024]):
+    """Calculate min/max isotropy angles for a location on given date.
+    
+    Args:
+        loc: Location name ('SNOLAB', 'Bariloche', etc.)
+        date: [day, month, year] (default [8,8,2024])
+        
+    Returns:
+        tuple: (min_angle, max_angle) in degrees
+    """
     
     import numpy as np
     from scipy.interpolate import CubicSpline
@@ -734,6 +905,28 @@ def get_angle_limits(loc,date=[8,8,2024]):
 
 
 def get_amplitude(mX,sigmaE,FDMn,material,min_angle,max_angle,ne=1,fractional=False,useVerne=False,verbose=False,fromFile=False,returnaverage=False,useQCDark=True,fit=None,summer=False):
+    """Calculate modulation amplitude between min/max angles.
+    
+    Args:
+        mX: DM mass in MeV
+        sigmaE: Cross section in cm^2
+        FDMn: Form factor model (0=FDM1, 2=FDMq2)
+        material: Target material
+        min_angle: Minimum isotropy angle in degrees
+        max_angle: Maximum isotropy angle in degrees
+        ne: Electron bin (default 1)
+        fractional: Return fractional amplitude (default False)
+        useVerne: Use Verne distribution (default False)
+        verbose: Print debug info (default False)
+        fromFile: Load rates from file (default False)
+        returnaverage: Return average rate instead of amplitude (default False)
+        useQCDark: Use QCDark form factor (default True)
+        fit: Fit rates (default None=auto)
+        summer: Use summer distribution (default False)
+        
+    Returns:
+        Modulation amplitude (or fractional amplitude if specified)
+    """
 
     if fit is None:
         if useVerne:
@@ -850,7 +1043,23 @@ def get_amplitude(mX,sigmaE,FDMn,material,min_angle,max_angle,ne=1,fractional=Fa
     
 
 def plot_modulation_ne_bins(mX1,mX2,sigmaE1,sigmaE2,material,FDMn,location1='SNOLAB',location2='SUPL',fractional=True,useVerne=False,verbose=False,fromFile=False,nes=[1,2,3,4,5,6,7,8,9,10],save=False,ybounds=None,useQCDark = True):
-
+    """Plot modulation amplitudes across electron bins for two parameter sets.
+    
+    Args:
+        mX1, mX2: DM masses in MeV to compare
+        sigmaE1, sigmaE2: Cross sections in cm^2 to compare  
+        material: Target material ('Si', 'Xe', 'Ar')
+        FDMn: Form factor model (0=FDM1, 2=FDMq2)
+        location1, location2: Locations to compare (default 'SNOLAB' vs 'SUPL')
+        fractional: Plot fractional amplitudes (default True)
+        useVerne: Use Verne distribution (default False)
+        verbose: Print debug info (default False) 
+        fromFile: Load rates from file (default False)
+        nes: List of electron bins to plot (default 1-10)
+        save: Save figure to file (default False)
+        ybounds: Custom y-axis bounds (default None)
+        useQCDark: Use form factor from QCDark (default True)
+    """
 
     qedict = {True: "_qcdark",False: "_qedark"}
     matnamedict = {
@@ -984,6 +1193,25 @@ def plot_modulation_ne_bins(mX1,mX2,sigmaE1,sigmaE2,material,FDMn,location1='SNO
 
 
 def getModulationAmplitudes(material,FDMn,location,fractional=False,useVerne=True,fromFile=True,verbose=False,ne=1,returnaverage=False,useQCDark=True,summer=False):
+    """Get modulation amplitudes for all available masses/cross-sections.
+    
+    Args:
+        material: Target material ('Si', 'Xe', 'Ar')
+        FDMn: Form factor model (0=FDM1, 2=FDMq2)
+        location: Location name ('SNOLAB', etc.)
+        fractional: Return fractional amplitudes (default False)
+        useVerne: Use Verne distribution (default True)
+        fromFile: Load rates from file (default True)
+        verbose: Print debug info (default False)
+        ne: Electron bin (default 1)
+        returnaverage: Return average rate instead of amplitude (default False)
+        useQCDark: Use form factor from QCDark (default True)
+        summer: Use summer distribution (default False)
+        
+    Returns:
+        tuple: (masses, sigmaEs, amplitudes) arrays for all available data
+    """
+
     from tqdm.autonotebook import tqdm
     import re
     import numpy as np
@@ -1041,6 +1269,28 @@ def getModulationAmplitudes(material,FDMn,location,fractional=False,useVerne=Tru
 
 
 def getContourData(material,FDMn,location,fractional=False,useVerne=True,fromFile=True,verbose=False,getAll=True,masses=None,sigmaEs=None,ne=1,returnaverage=False,useQCDark=True,unitize=False,summer=False):
+    """Prepare modulation data for contour plotting on mass-cross section grid.
+    
+    Args:
+        material: Target material ('Si', 'Xe', 'Ar')
+        FDMn: Form factor model (0=FDM1, 2=FDMq2)
+        location: Location name ('SNOLAB', etc.)
+        fractional: Use fractional amplitudes (default False)
+        useVerne: Use Verne distribution (default True)
+        fromFile: Load rates from file (default True)
+        verbose: Print debug info (default False)
+        getAll: Get all available data (default True)
+        masses: Custom mass grid (default None)
+        sigmaEs: Custom cross section grid (default None)
+        ne: Electron bin (default 1)
+        returnaverage: Return average rates (default False)
+        useQCDark: Use form factor from QCDark (default True)
+        unitize: Convert units to kg*day (default False)
+        summer: Use summer distribution (default False)
+        
+    Returns:
+        tuple: (mass_grid, cs_grid, amplitude_grid) interpolated data
+    """
     import numpy as np
     from scipy.interpolate import griddata
     masses,cross_sections,amplitudes = getModulationAmplitudes(material,FDMn,location,fractional=fractional,useVerne=useVerne,fromFile=fromFile,verbose=verbose,ne=ne,returnaverage=returnaverage,useQCDark=useQCDark,summer=summer)
@@ -1073,9 +1323,17 @@ def getContourData(material,FDMn,location,fractional=False,useVerne=True,fromFil
 
                     
 def find_exp(number) -> int:
-        from math import log10, floor
-        base10 = log10(number)
-        return floor(base10)
+    """Find base 10 exponent of a number.
+    
+    Args:
+        number: Input number
+        
+    Returns:
+        int: Floor of base 10 logarithm
+    """
+    from math import log10, floor
+    base10 = log10(number)
+    return floor(base10)
 
 
 
@@ -1083,6 +1341,18 @@ def find_exp(number) -> int:
       
     
 def modify_colormap(cmap_name,divisor=2, white_at_bottom=True):
+    
+    """Modify colormap by replacing part with white.
+    
+    Args:
+        cmap_name: Name of colormap to modify
+        divisor: Fraction of colormap to replace (default 2)
+        white_at_bottom: Replace bottom (True) or top (False) (default True)
+        
+    Returns:
+        Modified colormap
+    """
+
     import numpy as np
     import matplotlib.pyplot as plt
     import matplotlib.colors as colors
@@ -1103,6 +1373,24 @@ def modify_colormap(cmap_name,divisor=2, white_at_bottom=True):
                     
 
 def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVerne=True,fromFile=True,verbose=False,masses=None,sigmaEs=None,ne=1,shadeMFP=True,savefig=False,standardizeGrid = False,useQCDark=True,showProjection=False):
+    """Create multi-panel figure showing modulation significance.
+    
+    Args:
+        loc: Location name ('SNOLAB', etc.)
+        material: Target material (default 'Si')
+        plotConstraints: Plot experimental constraints (default True)
+        useVerne: Use Verne distribution (default True)
+        fromFile: Load rates from file (default True)
+        verbose: Print debug info (default False)
+        masses: Custom mass grid (default None)
+        sigmaEs: Custom cross section grid (default None)
+        ne: Electron bin (default 1)
+        shadeMFP: Shade mean free path region (default True)
+        savefig: Save figure to file (default False)
+        standardizeGrid: Use standardized grid (default False)
+        useQCDark: Use form factor from QCDark (default True)
+        showProjection: Show experimental projections (default False)
+    """
     from tqdm.autonotebook import tqdm
     import numpy as np
     import matplotlib.pyplot as plt
@@ -1590,6 +1878,25 @@ def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVern
 
 
 def plotMaterialSeasonalSignificanceComparison(fdm,loc,material='Si',plotConstraints=True,useVerne=True,fromFile=True,verbose=False,masses=None,sigmaEs=None,ne=1,shadeMFP=True,savefig=False,standardizeGrid = False,useQCDark=True,showProjection=False):
+    """Compare modulation significance between March and June.
+    
+    Args:
+        fdm: Form factor model (0=FDM1, 2=FDMq2)
+        loc: Location name ('SNOLAB', etc.)
+        material: Target material (default 'Si')
+        plotConstraints: Plot experimental constraints (default True)
+        useVerne: Use Verne distribution (default True)
+        fromFile: Load rates from file (default True)
+        verbose: Print debug info (default False)
+        masses: Custom mass grid (default None)
+        sigmaEs: Custom cross section grid (default None)
+        ne: Electron bin (default 1)
+        shadeMFP: Shade mean free path region where Verne is expected to be less accurate (default True)
+        savefig: Save figure to file (default False)
+        standardizeGrid: Use standardized grid (default False)
+        useQCDark: Use form factor from QCDark (default True)
+        showProjection: Show experimental projections (default False)
+    """
     from tqdm.autonotebook import tqdm
     import numpy as np
     import matplotlib.pyplot as plt
@@ -2078,6 +2385,24 @@ def plotMaterialSeasonalSignificanceComparison(fdm,loc,material='Si',plotConstra
 
 
 def plotModulationFigure(fdm,fractional=False,plotConstraints=True,useVerne=True,fromFile=True,verbose=False,masses=None,sigmaEs=None,ne=1,shadeMFP=True,savefig=False,kgday=True,useQCDark=True,logfractional=True,summer=False):
+    """Create multi-panel figure showing modulation amplitudes.
+    
+    Args:
+        fdm: Form factor model (0=FDM1, 2=FDMq2)
+        fractional: Plot fractional amplitudes (default False)
+        plotConstraints: Plot experimental constraints (default True)
+        useVerne: Use Verne distribution (default True)
+        fromFile: Load rates from file (default True)
+        verbose: Print debug info (default False)
+        masses: Custom mass grid (default None)
+        sigmaEs: Custom cross section grid (default None)
+        ne: Electron bin (default 1)
+        shadeMFP: Shade mean free path region where Verne is less accurate (default True)
+        savefig: Save figure to file (default False)
+        useQCDark: Use form factor from QCDark (default True)
+        logfractional: Use log scale for fractional amps (default True)
+        summer: Use summer distribution (default False)
+    """
     from tqdm.autonotebook import tqdm
     import numpy as np
     import matplotlib.pyplot as plt
@@ -2405,13 +2730,28 @@ def plotModulationFigure(fdm,fractional=False,plotConstraints=True,useVerne=True
     return 
 
 
-def find_exp(number) -> int:
-    from math import log10, floor
-    base10 = log10(number)
-    return floor(base10)
+
 
             
 def plotRateComparisonSubplots(material,sigmaE_list,mX_list,fdm,plotVerne=True,savefig=False,savedir=None,verneOnly=False,damascusOnly=False,ne=1,showScatter=False,showFit=False,useQCDark=True,showErr=False):
+    """Plot rate vs angle comparisons in subplots for different parameters.
+    
+    Args:
+        material: Target material ('Si', 'Xe', 'Ar')
+        sigmaE_list: List of cross sections to plot
+        mX_list: List of masses to plot
+        fdm: Form factor model (0=FDM1, 2=FDMq2)
+        plotVerne: Include Verne rates (default True)
+        savefig: Save figure to file (default False)
+        savedir: Custom save directory (default None)
+        verneOnly: Only plot Verne rates (default False)
+        damascusOnly: Only plot DaMaSCUS rates (default False)
+        ne: Electron bin (default 1)
+        showScatter: Show data points (default False)
+        showFit: Show fitted curve (default False)
+        useQCDark: Use form factor from QCDark (default True)
+        showErr: Show error bars (default False)
+    """
     import numpy as np
     # plotting specifications
     import matplotlib.pyplot as plt
@@ -2595,6 +2935,13 @@ def plotRateComparisonSubplots(material,sigmaE_list,mX_list,fdm,plotVerne=True,s
 
 
 def plotMeanFreePath(FDMn,plotConstraints=True,cmap_name='viridis'):
+    """Plot DM mean free path through Earth for given form factor.
+    
+    Args:
+        FDMn: Form factor model (0=FDM1, 2=FDMq2)
+        plotConstraints: Plot experimental constraints (default True)
+        cmap_name: matplotlib Colormap name (default 'viridis')
+    """
     import numpy as np
     from tqdm.autonotebook import tqdm
     import sys
@@ -2765,6 +3112,14 @@ def plotMeanFreePath(FDMn,plotConstraints=True,cmap_name='viridis'):
 
 
 def plotLocationExposure(address1,address2,savefig=True):
+    """Plot isoangle over a day/ effective exposure over a day for two locations.
+    
+    Args:
+        address1: First location address
+        address2: Second location address
+        savefig: Save figure to file (default True)
+    """
+    
     import numpy as np
     import pandas as pd
     import matplotlib.pyplot as plt
@@ -2841,6 +3196,17 @@ def plotLocationExposure(address1,address2,savefig=True):
 
 
 def significance(average,fracamp,exposure,background):
+    """Calculate statistical significance for modulation amplitude.
+    
+    Args:
+        average: Average event rate
+        fracamp: Fractional modulation amplitude
+        exposure: Experiment exposure
+        background: Background rate
+        
+    Returns:
+        Significance value
+    """
     import numpy as np
     numerator = average * fracamp * exposure
     denominator = average + background
@@ -2851,6 +3217,25 @@ def significance(average,fracamp,exposure,background):
 
 
 def find_sigma_cross_section(material,FDMn,test_mX,test_exposure,background,ne=1,loc='SNO',useVerne=True,fromFile=True,useQCDark = True,sigma=5,plot=False):
+    """Find cross section needed for given significance.
+    
+    Args:
+        material: Target material ('Si', 'Xe', 'Ar')
+        FDMn: Form factor model (0=FDM1, 2=FDMq2)
+        test_mX: DM mass in MeV
+        test_exposure: Experiment exposure
+        background: Background rate
+        ne: Electron bin (default 1)
+        loc: Location name (default 'SNO')
+        useVerne: Use Verne distribution (default True)
+        fromFile: Load rates from file (default True)
+        useQCDark: Use form factor from QCDark (default True)
+        sigma: Desired significance (default 5)
+        plot: Make diagnostic plot (default False)
+        
+    Returns:
+        Cross section in cm^2 required for given significance
+    """
     from scipy.interpolate import Akima1DInterpolator 
     from tqdm.autonotebook import tqdm
     import os
@@ -2936,6 +3321,12 @@ def find_sigma_cross_section(material,FDMn,test_mX,test_exposure,background,ne=1
 
 
 def plot_silicon_1e_limit_comparison(plotsig=False):
+    """Plot comparison of direct vs modulation limits for silicon 1e bin.
+    
+    Args:
+        plotsig: Plot significance curves (default False)
+    """
+     
     background_rates = [40,30,20,10,5,1,0.1] #events /g/day
     import numpy as np
     import matplotlib.lines as mlines
@@ -3007,4 +3398,7 @@ def plot_silicon_1e_limit_comparison(plotsig=False):
     plt.savefig('figures/Silicon/direct_mod_limit_comparison_fdmq2.pdf')
     plt.show()
     plt.close()
+
+
+
 

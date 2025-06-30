@@ -1,8 +1,20 @@
 from .Constants import *
 import numericalunits as nu
 class DM_Halo_Distributions:
+    """Class for calculating and managing dark matter halo velocity distributions.
+    
+    Provides methods for calculating various DM velocity distributions (SHM, Tsallis, DPL)
+    and generating corresponding data files.
+    
+    Args:
+        V0 (float, optional): Most probable DM velocity (default from Constants)
+        VEarth (float, optional): Earth's velocity (default from Constants)
+        VEscape (float, optional): Galactic escape velocity (default from Constants)
+        RHOX (float, optional): Local DM density (default from Constants)
+        crosssection (float, optional): DM cross section (default from Constants)
+    """
     def __init__(self,V0=None,VEarth=None,VEscape=None,RHOX=None,crosssection=None):
-
+        """Initialize DM halo distribution with given or default parameters."""
         if V0 is None:
             self.v0 = v0
         else:
@@ -30,6 +42,14 @@ class DM_Halo_Distributions:
 
 
     def generate_halo_files(self,model):
+        """Generate and save velocity distribution data files for a given model.
+           Done automatically generally.
+        
+        Args:
+            model (str): Velocity distribution model ('shm', 'tsa', or 'dpl')
+            
+        Saves file with columns: velocity [km/s], eta [s/km]
+        """
         import numpy as np
         vmax = self.vEarth + self.vEscape
         vMins = np.linspace(0,vmax,1000)
@@ -67,12 +87,33 @@ class DM_Halo_Distributions:
     
 
     def vmin(self,EE,q,mX):
+        """Calculate minimum DM velocity for given energy transfer and momentum.
+        
+        Args:
+            EE: Energy transfer
+            q: Momentum transfer
+            mX: DM mass in eV
+            
+        Returns:
+            Minimum velocity required for scattering
+        """
         #assume mX is in eV without numerical units applied
         vmin = ((EE/q)+(q/(2*mX))) / nu.c0
         return vmin
 
 
     def vmin_tensor(self,E,q,mX):
+        """Tensor version of vmin calculation for batch processing.
+        
+        Args:
+            E: Energy transfer values (tensor)
+            q: Momentum transfer values (tensor)
+            mX: DM mass
+            
+        Returns:
+            Tensor of minimum velocities
+        """
+
         import torch
         q_tiled = torch.tile(q,(len(E),1))
         EE_tiled = torch.tile(E,(len(q),1)).T
@@ -94,6 +135,14 @@ class DM_Halo_Distributions:
     #     return (self.v0**2)*np.pi/(2.0*self.vEarth*K)*val
     
     def etaSHM(self,vMin):
+        """Calculate Standard Halo Model (SHM) velocity distribution.
+        
+        Args:
+            vMin: Minimum velocity threshold
+            
+        Returns:
+            Velocity distribution eta(vMin) for SHM model
+        """
         from scipy.integrate import quad, dblquad, nquad
         from scipy.special import erf
         import numpy as np
@@ -132,7 +181,14 @@ class DM_Halo_Distributions:
             return 0 
 
     def eta_MB_tensor(self,vMin_tensor):
-        """Integrated Maxwell-Boltzmann Distribution"""
+        """Maxwell-Boltzmann velocity distribution (tensor version).
+        
+        Args:
+            vMin_tensor: Tensor of minimum velocity thresholds
+            
+        Returns:
+            Tensor of eta(vMin) values
+        """
         import torch
         device = vMin_tensor.device
         eta = torch.zeros_like(vMin_tensor,device=device)
@@ -151,6 +207,14 @@ class DM_Halo_Distributions:
     
 
     def etaTsa(self,vMin):
+        """Calculate Tsallis model velocity distribution.
+        
+        Args:
+            vMin: Minimum velocity threshold
+            
+        Returns:
+            Velocity distribution eta(vMin) for Tsallis model
+        """
 
         from scipy.integrate import nquad
         from Constants import q_Tsallis
@@ -211,6 +275,14 @@ class DM_Halo_Distributions:
 
 
     def etaDPL(self,vMin): #FIX UNITS
+        """Calculate Double Power Law (DPL) velocity distribution.
+        
+        Args:
+            vMin: Minimum velocity threshold
+            
+        Returns:
+            Velocity distribution eta(vMin) for DPL model
+        """
         from Constants import k_DPL
         from scipy.integrate import nquad
         import numpy as np
@@ -258,6 +330,16 @@ class DM_Halo_Distributions:
             return 0
 
     def step_function_eta(self,vMins, params): #CHECK UNITS
+        """Approximate velocity distribution using step functions.
+        
+        Args:
+            vMins: Tensor of velocity thresholds
+            params: Parameters controlling step heights
+            
+        Returns:
+            Approximate eta(vMin) as sum of step functions
+        """
+        
         #vMins is 2d array
         import torch
         num_steps = params.shape[0]

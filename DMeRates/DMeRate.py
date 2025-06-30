@@ -14,7 +14,20 @@ import numericalunits as nu
 
 
 class DMeRate:
+    """Class for calculating dark matter-electron scattering rates in various materials.
+    
+    Provides methods for computing DM-electron interaction rates in:
+    - Semiconductor crystals (Si, Ge)
+    - Noble elements (Xe, Ar)
+    
+    Args:
+        material (str): Target material ('Si', 'Ge', 'Xe', or 'Ar')
+        QEDark (bool): Use QEDark form factors (default False)
+        device (str, optional): Computation device ('cpu', 'cuda', etc.)
+    """
     def __init__(self,material,QEDark=False,device=None):
+        """Initialize rate calculator with material properties and computation settings."""
+
         import torch
         import numpy as np
         import os
@@ -37,7 +50,7 @@ class DMeRate:
             self.device = 'cuda'
             self.default_dtype = torch.float64
             self.dtype_str = 'float64'
-        # elif mps_available:
+        # elif mps_available: commented out since mps is limited to 32 floats, which can cause issues
         #     print("MPS GPU found, performing calculations on GPU. Setting default dtype to float32.")
         #     self.device = 'mps'
         #     self.default_dtype = torch.float32
@@ -172,6 +185,15 @@ class DMeRate:
     
 
     def update_params(self,v0,vEarth,vEscape,rhoX,crosssection):
+        """Update DM halo parameters.
+        
+        Args:
+            v0 (float): Most probable DM velocity (km/s)
+            vEarth (float): Earth's velocity (km/s)
+            vEscape (float): Galactic escape velocity (km/s)
+            rhoX (float): Local DM density (eV/cm^3)
+            crosssection (float): DM cross section (cm^2)
+        """
         #assuming values passed in are km/s,km/s,km/s,eV/cm^3,cm^2
         #masses must be in eV if passed in 
         self.v0 = v0* (nu.km / nu.s)
@@ -183,6 +205,14 @@ class DMeRate:
 
    
     def step_probabilities(self,ne):
+        """Step function approximation for electron-hole pair creation probabilities.
+        
+        Args:
+            ne (int): Number of electron-hole pairs
+            
+        Returns:
+            probabilities for being in certain bin
+        """
         import torch
         i = ne - 1
         dE, E_gap = self.form_factor.dE, self.form_factor.band_gap
@@ -199,6 +229,14 @@ class DMeRate:
         return probabilities
 
     def RKProbabilities(self,ne): #using values at 100k
+        """Interpolated probabilities from Ramanathan Kurinsky data for electron-hole pair creation.
+           See https://arxiv.org/abs/2004.10709
+        Args:
+            ne (int): Number of electron-hole pairs
+            
+        Returns:
+            Array of probabilities for each energy bin
+        """
         from numpy import loadtxt
         import torch
         # from scipy.interpolate import interp1d
@@ -218,11 +256,25 @@ class DMeRate:
         return probabilities
 
     def update_crosssection(self,crosssection):
+        """Update DM-electron cross section.
+        
+        Args:
+            crosssection (float): New cross section in cm^2
+        """
         #assuming value is in cm*2
         self.cross_section = crosssection *nu.cm**2
 
 
     def FDM(self,q,n):
+        """Dark matter form factor calculation.
+        
+        Args:
+            q: Momentum transfer
+            n: Form factor model (0=FDM1, 1=FDMq, 2=FDMq2)
+            
+        Returns:
+            Form factor value
+        """
         # me_energy = (nu.me * nu.c0**2)
         """
         DM form factor
@@ -240,13 +292,31 @@ class DMeRate:
     #     return  vmins
 
     def read_output(self,fileName):
+        """Read form factor data from file.
+        
+        Args:
+            fileName: Path to form factor file
+            
+        Returns:
+            Form factor object
+        """
         """Read Input File"""
         return form_factor(fileName)
     
     def reduced_mass(self,mass1,mass2):
+        """Calculate reduced mass of two particles.
+        
+        Args:
+            mass1: First particle mass
+            mass2: Second particle mass
+            
+        Returns:
+            Reduced mass
+        """
         return mass1*mass2/(mass1+mass2)
     
     def change_to_step(self):
+        """Switch to step function probability model."""
         import torch
         self.ionization_func = self.step_probabilities
         prob_fn_tiled = []
@@ -259,6 +329,14 @@ class DMeRate:
     
 
     def TFscreening(self,DoScreen):
+        """Thomas-Fermi screening calculation for semiconductors.
+        
+        Args:
+            DoScreen (bool): Whether to apply screening
+            
+        Returns:
+            Screening factor array
+        """
         import torch
         tfdict = tf_screening[self.material]
         eps0,qTF,omegaP,alphaS = tfdict['eps0'],tfdict['qTF'],tfdict['omegaP'],tfdict['alphaS']
@@ -282,6 +360,16 @@ class DMeRate:
         return result
     
     def thomas_fermi_screening(self,q,E,doScreen=True):
+        """Vectorized Thomas-Fermi screening calculation.
+        
+        Args:
+            q: Momentum transfer values
+            E: Energy values
+            doScreen: Whether to apply screening
+            
+        Returns:
+            Screening factor tensor
+        """
         #param q, tensor with shape 1250
         #param E, tensor with shape 500
         tfdict = tf_screening[self.material]
@@ -324,6 +412,16 @@ class DMeRate:
     
 
     def setup_halo_data(self,mX,FDMn,halo_model,isoangle=None,useVerne=False,calcErrors=None):
+        """Load or generate velocity distribution data for given parameters.
+        
+        Args:
+            mX: DM mass
+            FDMn: Form factor model [0 or 2]
+            halo_model: Velocity distribution model ('shm' for standard halo model, 'modulated' for march data, 'summer' for june data)
+            isoangle: isoangle (for modulated distributions) (number from 0 -35 with the true isoangle being 5x that value)
+            useVerne: Use Verne distribution
+            calcErrors: Calculate errors ('High'/'Low') (only works for DaMaSCUS data)
+        """
         import os
         import torch
         torch.set_default_device(self.device)
@@ -434,6 +532,16 @@ class DMeRate:
 
 
     def get_halo_data(self,vMins,halo_model,halo_id_params=None):
+        """Retrieve velocity distribution for given velocities.
+        
+        Args:
+            vMins: Minimum velocity values
+            halo_model: Velocity distribution model (shm, tsa, etc. See DM_Halo.py)
+            halo_id_params: Parameters for step function model (used for halo independent analysis)
+            
+        Returns:
+            Integrated velocity distribution values
+        """
         import torch
         import os
         import re
@@ -468,6 +576,17 @@ class DMeRate:
         
 
     def vMin_tensor(self,qArr,Earr,mX,shell_key=None):
+        """Calculate minimum velocities in tensor form.
+        
+        Args:
+            qArr: Momentum transfer values
+            Earr: Energy values
+            mX: DM mass
+            shell_key: Electron shell (for noble elements)
+            
+        Returns:
+            Tensor of minimum velocities
+        """
         import torch
         q_tiled = torch.tile(qArr,(len(Earr),1))
 
@@ -494,6 +613,17 @@ class DMeRate:
             #  qtest/(2.0*test_mX * nu.MeV) + test_Ee/qtest
         
     def get_parametrized_eta(self,vMins,mX,halo_model,halo_id_params=None):
+        """Calculate parametrized velocity distribution.
+        
+        Args:
+            vMins: Minimum velocity values
+            mX: DM mass
+            halo_model: Velocity distribution model
+            halo_id_params: Parameters for step function model (used for halo independent analysis)
+            
+        Returns:
+            Parametrized integrated velocity distribution values (units of inverse time)
+        """
         #stupid way for me to set units 
         import torch
 
@@ -509,6 +639,21 @@ class DMeRate:
 
 
     def vectorized_dRdE(self,mX,FDMn,halo_model,DoScreen=True,halo_id_params=None,integrate=True,debug=False,unitize=False):
+        """Calculate differential rate (dR/dE) using vectorized operations for semiconductor materials.
+        
+        Args:
+            mX: DM mass
+            FDMn: Form factor model
+            halo_model: Velocity distribution model
+            DoScreen: Apply screening effects
+            halo_id_params: Parameters for step function model (used for halo independent analysis)
+            integrate: Perform numerical integration
+            debug: Return debug information
+            unitize: Convert to standard units
+            
+        Returns:
+            Differential rate values
+        """
         import torch
         
         torch.set_default_device(self.device)
@@ -615,8 +760,25 @@ class DMeRate:
 
         return band_gap_result  #result is in R / kg /year / eV
     
-    def calculate_crystal_rates(self,mX_array,halo_model,FDMn,ne,integrate=True,DoScreen=True,isoangle=None,halo_id_params=None,useVerne=False,calcErrors=None,debug=False):
+    def calculate_semiconductor_rates(self,mX_array,halo_model,FDMn,ne,integrate=True,DoScreen=True,isoangle=None,halo_id_params=None,useVerne=False,calcErrors=None,debug=False):
+        """Calculate rates for semiconductor crystals (Si, Ge).
         
+        Args:
+            mX_array: Array of DM masses
+            halo_model: Velocity distribution model
+            FDMn: Form factor model
+            ne: Number of electron-hole pairs
+            integrate: Perform numerical integration vs using preintegrated version
+            DoScreen: Apply screening effects
+            isoangle: isoangle (for modulated distributions) (number from 0 -35 with the true isoangle being 5x that value)
+            halo_id_params: Parameters for step function model (used for halo independent analysis)
+            useVerne: Use Verne distribution
+            calcErrors: Calculate errors ('High'/'Low') (only for DaMaSCUS)
+            debug: Return debug information
+            
+        Returns:
+            Calculated rates
+        """
         import torch
         import numpy
         if self.material == 'Ge':
@@ -684,6 +846,20 @@ class DMeRate:
         return dRdnEs.T #should be in kg/year
     
     def rate_dme_shell(self,mX,FDMn,halo_model,shell_key,halo_id_params=None,debug=False,unitize=False):
+        """Calculate rate for specific electron shell in noble elements.
+        
+        Args:
+            mX: DM mass
+            FDMn: Form factor model
+            halo_model: Velocity distribution model
+            shell_key: Electron shell identifier
+            halo_id_params: Parameters for step function model (used for halo independent analysis)
+            debug: Return debug information
+            unitize: Convert to standard units
+            
+        Returns:
+            Rate for specified shell
+        """
         import torch
         qArr = self.qArrdict[shell_key]
         # qiArr = self.qArrdict[shell_key] / (me_eV * nu.alphaFS)
@@ -752,6 +928,20 @@ class DMeRate:
         return integrated_result
     
     def noble_dRdE(self,mX,FDMn,halo_model,halo_id_params=None,debug=False,unitize=False):
+        """Calculate differential rates for all shells in noble elements.
+        
+        Args:
+            mX: DM mass
+            FDMn: Form factor model
+            halo_model: Velocity distribution model
+            halo_id_params: Parameters for step function model (used for halo independent analysis)
+            debug: Return debug information
+            unitize: Convert to standard units
+            
+        Returns:
+            Dictionary of differential rates by shell
+        """
+
         mX = mX*nu.MeV / nu.c0**2
         drs = dict()
         for key in self.form_factor.keys:
@@ -763,6 +953,18 @@ class DMeRate:
     
 
     def energy_to_ne_pmf(self,rates,shell,nes_tensor,p_primary,p_secondary):
+        """Convert energy differential rates to electron count probabilities.
+        
+        Args:
+            rates: Differential rates
+            shell: Electron shell
+            nes_tensor: Electron count values
+            p_primary: Primary probability
+            p_secondary: Secondary probability
+            
+        Returns:
+            Probability mass function values
+        """
         import torch
         from torch.distributions.binomial import Binomial
         # nes_tensor = nes_tensor.to(torch.double)
@@ -822,6 +1024,18 @@ class DMeRate:
         return r_n_tensor
 
     def vectorized_energy_to_ne_pmf(self, rates, shell, nes_tensor, p_primary, p_secondary):
+        """Vectorized version of energy_to_ne_pmf.
+        
+        Args:
+            rates: Differential rates
+            shell: Electron shell
+            nes_tensor: Electron count values
+            p_primary: Primary probability
+            p_secondary: Secondary probability
+            
+        Returns:
+            Probability mass function values
+        """
         import torch
         
         # Convert inputs to appropriate types
@@ -880,6 +1094,18 @@ class DMeRate:
 
 
     def rates_to_ne(self,drs,nes,p_primary = 1,p_secondary = 0.83, swap_4s4p = False):
+        """Convert differential rates to electron count rates.
+        
+        Args:
+            drs: Dictionary of differential rates by shell
+            nes: Electron values to calculate for (list/int)
+            p_primary: Primary probability
+            p_secondary: Secondary probability
+            swap_4s4p: Special handling for Xenon shells because the form factor data was swapped
+            
+        Returns:
+            Dictionary of rates by shell
+        """
         import torch
         # We need an "energy bin size" to multiply with (or do some fancy integration)
         # I'll use the differences between the points at which the differential 
@@ -916,6 +1142,23 @@ class DMeRate:
 
 
     def calculate_nobleGas_rates(self,mX_array,halo_model,FDMn,ne,isoangle=None,halo_id_params=None,useVerne=False,calcErrors=None,debug=False,returnShells=False):
+        """Calculate rates for noble gas targets (Xe, Ar).
+        
+            Args:
+                mX_array: Array of DM masses
+                halo_model: Velocity distribution model
+                FDMn: Form factor model
+                ne: Number of electrons (list,int)
+                isoangle: isoangle (for modulated distributions) (number from 0 -35 with the true isoangle being 5x that value)
+                halo_id_params: Parameters for step function model (used for halo independent analysis)
+                useVerne: Use Verne distribution
+                calcErrors: Calculate errors ('High'/'Low')
+                debug: Return debug information
+                returnShells: Return shell-by-shell breakdown
+                
+            Returns:
+                Calculated rates (and shell breakdown if requested)
+        """
         import torch
         import numpy
 
@@ -992,8 +1235,27 @@ class DMeRate:
 
 
     def calculate_rates(self,mX_array,halo_model,FDMn,ne,integrate=True,DoScreen=True,isoangle=None,halo_id_params=None,useVerne=False,calcErrors=None,debug=False):
+        """Main rate calculation method that routes to appropriate implementation.
+        
+        Args:
+            mX_array: Array of DM masses
+            halo_model: Velocity distribution model
+            FDMn: Form factor model
+            ne: Number of electrons/electron-hole pairs (list/int)
+            integrate: Perform numerical integration
+            DoScreen: Apply screening effects
+            isoangle: isoangle (for modulated distributions) (number from 0 -35 with the true isoangle being 5x that value)
+            halo_id_params: Parameters for step function model (used for halo independent analysis)
+            useVerne: Use Verne distribution
+            calcErrors: Calculate errors ('High'/'Low')
+            debug: Return debug information
+            
+        Returns:
+            Calculated rates
+        """
+
         if self.material == 'Si' or self.material =='Ge':
-            return self.calculate_crystal_rates(mX_array,halo_model,FDMn,ne,integrate,DoScreen,isoangle=isoangle,halo_id_params=halo_id_params,useVerne=useVerne,calcErrors=calcErrors,debug=debug)
+            return self.calculate_semiconductor_rates(mX_array,halo_model,FDMn,ne,integrate,DoScreen,isoangle=isoangle,halo_id_params=halo_id_params,useVerne=useVerne,calcErrors=calcErrors,debug=debug)
         if self.material == 'Xe' or self.material == 'Ar':
             return self.calculate_nobleGas_rates(mX_array,halo_model,FDMn,ne,isoangle=isoangle,halo_id_params=halo_id_params,useVerne=useVerne,calcErrors=calcErrors,debug=debug,returnShells=False)
     
@@ -1001,6 +1263,21 @@ class DMeRate:
     
 
     def generate_dat(self,dm_masses,ne_bins,fdm,dm_halo_model,DoScreen=False,write=True,tag=""):
+        """Generate rate data files for storage and analysis.
+        
+        Args:
+            dm_masses: Array of DM masses
+            ne_bins: Electron count bins
+            fdm: Form factor model 
+            dm_halo_model: Velocity distribution model
+            DoScreen: Apply screening effects
+            write: Save to file
+            tag: Additional filename tag
+            
+        Returns:
+            Array of calculated rates
+        """
+
         import torch
         from tqdm.autonotebook import tqdm
         import numpy as np
