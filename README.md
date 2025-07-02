@@ -1,7 +1,7 @@
 # DarkMatterRates
 DMeRates is a tool that allows for vectorized calculation of DM-electron scattering rates in Silicon, Germanium, Xenon and Argon. It makes use of form factors from [QCDark](https://github.com/asingal14/QCDark) (see [arXiv:2306.14944](https://arxiv.org/abs/2306.14944)), [QEDark](https://github.com/tientienyu/QEdark) (see [arXiv:1509.01598](https://arxiv.org/abs/1509.01598)), [wimprates](https://github.com/JelleAalbers/wimprates) (see [arXiv:1703.00910](https://arxiv.org/abs/1703.00910)). It is fast, efficient, and takes advantage of a GPU if you have one. 
 
-I wrote this to speed up rate calculations, and primarily for a study of daily modulation. You can calculate your own daily modulated rates by providing your own halo data. This code will make use of halo data in the form of a txt file with the left column being vmin (km/s), and the right column being η(vmin) (s/km).  Halo data used for the study of daily modulation due to Earth scattering (modulation paper will go here) is publicly available here: [Dryad](10.5061/dryad.8pk0p2p19), along with instructions on how to use it. You can also use tools such as [DaMaSCUS](https://github.com/temken/DaMaSCUS) and/or [Verne](https://github.com/bradkav/verne) to generate your own halo data. To use the data made public at [Dryad](10.5061/dryad.8pk0p2p19), simply copy the contents of the folder modulated into the folder titled halo_data.
+I wrote this to speed up rate calculations, and primarily for a study of daily modulation. You can calculate your own daily modulated rates by providing your own halo data. This code will make use of halo data in the form of a txt file with the left column being vmin (km/s), and the right column being η(vmin) (s/km).  Halo data used for the study of daily modulation due to Earth scattering [arXiv:2507.00344](http://arxiv.org/abs/2507.00344) is publicly available here: [Dryad](10.5061/dryad.8pk0p2p19), along with instructions on how to use it. You can also use tools such as [DaMaSCUS](https://github.com/temken/DaMaSCUS) and/or [Verne](https://github.com/bradkav/verne) to generate your own halo data. To use the data made public at [Dryad](10.5061/dryad.8pk0p2p19), simply copy the contents of the folder modulated into the folder titled halo_data.
 You can use the previously generated rates available at the same link (copy contents of folder rates into the folder titled modulation_study), or you can regenerate the rates once the halo data is copied by running the notebook [modulation_rates_generating.ipynb](modulation_study/modulation_rates_generating.ipynb).
 
 
@@ -29,3 +29,7 @@ Requires [numpy](http://www.numpy.org), [scipy](https://www.scipy.org) and uses 
 It also makes use of a useful package for tracking units called [numericalunits](https://pypi.org/project/numericalunits/)
 
 ### Citing
+If you make use of this code or numerical results please cite the zenodo link (pending) as well as citing our relevant [arXiv:2507.00344](http://arxiv.org/abs/2507.00344)
+
+## Papers that used this code
+[arXiv:2507.00344](http://arxiv.org/abs/2507.00344)
