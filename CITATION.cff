@@ -1,0 +1,9 @@
+cff-version: 1.1.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: Ansh
+  given-names: Desai
+orcid: https://orcid.org/0000-0002-5447-8304
+title:ande8412/DarkMatterRates: First Release
+version: v1.0
+date-released: 2025-07-02
