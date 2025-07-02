@@ -1,4 +1,5 @@
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15787086.svg)](https://doi.org/10.5281/zenodo.15787086)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15787086.svg)](https://doi.org/10.5281/zenodo.15787086)  [![arXiv](https://img.shields.io/badge/arXiv-2507.00344-B31B1B.svg)](http://arxiv.org/abs/2507.00344) [![MIT Licence](https://badges.frapsoft.com/os/mit/mit.svg?v=103)](https://opensource.org/licenses/mit-license.php)
+
 # DarkMatterRates
 DMeRates is a tool that allows for vectorized calculation of DM-electron scattering rates in Silicon, Germanium, Xenon and Argon. It makes use of form factors from [QCDark](https://github.com/asingal14/QCDark) (see [arXiv:2306.14944](https://arxiv.org/abs/2306.14944)), [QEDark](https://github.com/tientienyu/QEdark) (see [arXiv:1509.01598](https://arxiv.org/abs/1509.01598)), [wimprates](https://github.com/JelleAalbers/wimprates) (see [arXiv:1703.00910](https://arxiv.org/abs/1703.00910)). It is fast, efficient, and takes advantage of a GPU if you have one. 
 
