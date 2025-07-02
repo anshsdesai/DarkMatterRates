@@ -31,7 +31,7 @@ Requires [numpy](http://www.numpy.org), [scipy](https://www.scipy.org) and uses 
 It also makes use of a useful package for tracking units called [numericalunits](https://pypi.org/project/numericalunits/)
 
 ### Citing
-If you make use of this code or numerical results please see the CITATION.cff file as well as citing our relevant [arXiv:2507.00344](http://arxiv.org/abs/2507.00344)
+If you make use of this code or numerical results please see the CITATION.cff. If using our modulation results please cite our paper [arXiv:2507.00344](http://arxiv.org/abs/2507.00344)
 
 ## Papers that used this code
 [arXiv:2507.00344](http://arxiv.org/abs/2507.00344)
