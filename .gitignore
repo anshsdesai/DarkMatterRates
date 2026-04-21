@@ -15,6 +15,7 @@ modulation_study/damascus_modulated_rates*
 
 modulation_study/verne_modulated_rates*
 
+modulation_study/modulation_analysis/verne_modulated_rates*
 
 modulation_study/figures/*
 
@@ -26,3 +27,4 @@ DMeRates/Rates/
 # QCDark/
 # wimprates_mod/
 old_for_comparison/
+CLAUDE.md

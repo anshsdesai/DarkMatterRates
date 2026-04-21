@@ -40,6 +40,27 @@ def set_default_plotting_params(fontsize=40):
     plt.rcParams['figure.figsize']=(16,12)
     return
 
+def round_to_sig_figs(x, sig_figs=3):
+    import math
+    """
+    Rounds a number to a specified number of significant figures.
+
+    Args:
+        x (float): The number to round.
+        sig_figs (int): The desired number of significant figures.
+    
+    Returns:
+        float: The number rounded to the specified significant figures.
+    """
+    if x == 0:
+        return 0.0
+    
+    # Calculate the exponent based on the number of significant figures
+    exponent = sig_figs - int(math.floor(math.log10(abs(x)))) - 1
+    
+    # Use the standard round() function with the calculated exponent
+    # Note: Python's round() uses "round half to even" for .5 cases.
+    return round(x, exponent)
 
 def get_modulated_rates(material,mX,sigmaE,fdm,ne,useVerne=True,calcError=None,useQCDark=True,DoScreen = True,verbose = False,flat=False,dmRateObject = None,summer=False):
     """Calculate modulated DM-electron scattering rates for given parameters.
@@ -140,7 +161,7 @@ def get_modulated_rates(material,mX,sigmaE,fdm,ne,useVerne=True,calcError=None,u
 
     
     
-def generate_modulated_rates(material,FDMn,useQCDark = True,useVerne=True,calcError=None,doScreen=True,overwrite=False,verbose=False,save=True,summer=False):
+def generate_modulated_rates(material,FDMn,useQCDark = True,useVerne=True,calcError=None,doScreen=True,overwrite=False,verbose=False,save=True,summer=False,outdir= './'):
     """Generate and save modulated rate data for a range of masses and cross-sections.
     
     Args:
@@ -196,11 +217,11 @@ def generate_modulated_rates(material,FDMn,useQCDark = True,useVerne=True,calcEr
 
 
 
-    write_dir= f'damascus_modulated_rates{scr_str}{qestr}_{material}{summer_str}'
+    write_dir= outdir + f'damascus_modulated_rates{scr_str}{qestr}_{material}{summer_str}'
     
 
     if useVerne:
-        write_dir= f'verne_modulated_rates{scr_str}{qestr}_{material}{summer_str}'
+        write_dir= outdir + f'verne_modulated_rates{scr_str}{qestr}_{material}{summer_str}'
         calcError=None
 
 
@@ -1539,7 +1560,7 @@ def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVern
             temp_amps.append(np.nanmax(Amplitudes))
 
             current_ax.set_xscale('log')
-            current_ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+            current_ax.get_xaxis().set_major_formatter(matplotlib.ticker.FormatStrFormatter('%g'))
             current_ax.set_yscale('log')
             if masses is not None:
                 mass_low = np.min(masses)
@@ -1581,7 +1602,6 @@ def plotMaterialSignifianceFigure(loc,material='Si',plotConstraints=True,useVern
 
                         yhigh=1e-33
                         ylow=1e-37
-                current_ax.set_xticks([1,10])
             
                     
                 
@@ -2051,7 +2071,7 @@ def plotMaterialSeasonalSignificanceComparison(fdm,loc,material='Si',plotConstra
 
 
         current_ax.set_xscale('log')
-        current_ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+        current_ax.get_xaxis().set_major_formatter(matplotlib.ticker.FormatStrFormatter('%g'))
         current_ax.set_yscale('log')
         if masses is not None:
             mass_low = np.min(masses)
@@ -2189,7 +2209,6 @@ def plotMaterialSeasonalSignificanceComparison(fdm,loc,material='Si',plotConstra
         # print(yticks)
         n = 2
         current_ax.set_yticks(yticks)
-        current_ax.set_xticks([1,10])
         # [l.set_visible(False) for (i,l) in enumerate(current_ax.yaxis.get_ticklabels()) if i % n != 0]
 
         current_ax.set_xlim(xlow,xhigh)
@@ -2461,7 +2480,7 @@ def plotModulationFigure(fdm,fractional=False,plotConstraints=True,useVerne=True
             temp_amps.append(np.nanmax(Amplitudes))
 
             current_ax.set_xscale('log')
-            current_ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+            current_ax.get_xaxis().set_major_formatter(matplotlib.ticker.FormatStrFormatter('%g'))
             current_ax.set_yscale('log')
             if masses is not None:
                 mass_low = np.min(masses)
@@ -2733,7 +2752,7 @@ def plotModulationFigure(fdm,fractional=False,plotConstraints=True,useVerne=True
 
 
             
-def plotRateComparisonSubplots(material,sigmaE_list,mX_list,fdm,plotVerne=True,savefig=False,savedir=None,verneOnly=False,damascusOnly=False,ne=1,showScatter=False,showFit=False,useQCDark=True,showErr=False):
+def plotRateComparisonSubplots(material,sigmaE_list,mX_list,fdm,plotVerne=True,savefig=False,savedir=None,verneOnly=False,damascusOnly=False,ne=1,showScatter=False,showFit=False,useQCDark=True,showErr=False,showParams=True):
     """Plot rate vs angle comparisons in subplots for different parameters.
     
     Args:
@@ -2759,6 +2778,7 @@ def plotRateComparisonSubplots(material,sigmaE_list,mX_list,fdm,plotVerne=True,s
 
 
     #Options
+    smaller=24
     small = 32
     large= 44
     medium = 40
@@ -2838,6 +2858,8 @@ def plotRateComparisonSubplots(material,sigmaE_list,mX_list,fdm,plotVerne=True,s
             # current_ax.plot(isoangles,rates_flat,color='green',label="Flat",lw=3)
             maxv = np.max(rates_high)
             minv = np.min(rates_low)
+
+            amp = (maxv-minv) / 2
         
 
             rate_err = rates_high - rates
@@ -2860,6 +2882,7 @@ def plotRateComparisonSubplots(material,sigmaE_list,mX_list,fdm,plotVerne=True,s
                             
 
                     fit = fit_vector[0]
+                    amp = (np.max(fit)-np.min(fit)) / 2
    
 
                     current_ax.plot(angle_grid,fit,color='red',label="Fit",lw=4)
@@ -2892,10 +2915,24 @@ def plotRateComparisonSubplots(material,sigmaE_list,mX_list,fdm,plotVerne=True,s
                 current_ax.legend(loc='center right',prop={'size': small})
 
 
-    
+        if not verneOnly and showParams:
+            try:
+                rbar = np.mean(rates)
+                amp = np.abs(parameters[0])*rbar
+                amplitude = round_to_sig_figs(amp,3)
+                inflection =  round_to_sig_figs(parameters[1],3)
+                slope_angle =  round_to_sig_figs(parameters[2],3)
+                shift =  round_to_sig_figs(parameters[3]*rbar,3)
 
-        # plt.setp(current_ax.get_yticklabels()[::2], visible=False)
-
+       
+                
+            # plt.setp(current_ax.get_yticklabels()[::2], visible=False)
+                current_ax.text(0.05,0.33,f'$A={amplitude}$',fontsize=smaller,color='black',horizontalalignment='left',verticalalignment='center',transform = current_ax.transAxes)
+                current_ax.text(0.05,0.27,f'$\\theta_0={inflection}$',fontsize=smaller,color='black',horizontalalignment='left',verticalalignment='center',transform = current_ax.transAxes)
+                current_ax.text(0.05,0.19,f'$\\theta_s={slope_angle}$',fontsize=smaller,color='black',horizontalalignment='left',verticalalignment='center',transform = current_ax.transAxes)
+                current_ax.text(0.05,0.12,f'$C={shift}$',fontsize=smaller,color='black',horizontalalignment='left',verticalalignment='center',transform = current_ax.transAxes)
+            except IndexError:
+                current_ax.text(0.05,0.12,f'Linear Fit',fontsize=smaller,color='black',horizontalalignment='left',verticalalignment='center',transform = current_ax.transAxes)
 
         current_ax.text(0.25,0.05,'SNOLAB ($46$\N{degree sign}N)',fontsize=small,color='grey',horizontalalignment='center',verticalalignment='center',transform = current_ax.transAxes)
         current_ax.text(0.72,0.05,'SUPL ($37$\N{degree sign}S)',fontsize=small,color='grey',horizontalalignment='center',verticalalignment='center',transform = current_ax.transAxes)
@@ -2931,16 +2968,19 @@ def plotRateComparisonSubplots(material,sigmaE_list,mX_list,fdm,plotVerne=True,s
     plt.show()
 
     plt.close()
+    return
 
 
 
-def plotMeanFreePath(FDMn,plotConstraints=True,cmap_name='viridis'):
+def plotMeanFreePath(FDMn,plotConstraints=True,cmap_name='viridis', mX_range=(0.1, 1000), sigmaE_range=None):
     """Plot DM mean free path through Earth for given form factor.
     
     Args:
         FDMn: Form factor model (0=FDM1, 2=FDMq2)
         plotConstraints: Plot experimental constraints (default True)
         cmap_name: matplotlib Colormap name (default 'viridis')
+        mX_range: Tuple of (min, max) for DM mass in MeV (default (0.1, 1000))
+        sigmaE_range: Tuple of (min, max) for cross section in cm^2 (default depends on FDMn)
     """
     import numpy as np
     from tqdm.autonotebook import tqdm
@@ -2954,8 +2994,16 @@ def plotMeanFreePath(FDMn,plotConstraints=True,cmap_name='viridis'):
     # # mX_array = np.concatenate((np.arange(0.2,0.8,0.025),np.array([0.9]),np.arange(1,5,0.05),np.arange(5,11,1),np.array([20,50,100,200,500,1000])))
     # mX_array_heavy = np.concatenate((np.arange(0.2,10,0.025),np.arange(10,1500,0.1)))
 
-    mX_array = np.geomspace(0.1,1000,100)
-    sigmaEs = np.geomspace(1e-42,1e-28,100)
+    if sigmaE_range is None:
+        if FDMn == 0:
+            sigmaE_range = (1e-42, 1e-28)
+        elif FDMn == 2:
+            sigmaE_range = (1e-38, 1e-29)
+        else:
+            sigmaE_range = (1e-42, 1e-28)
+
+    mX_array = np.geomspace(mX_range[0], mX_range[1], 100)
+    sigmaEs = np.geomspace(sigmaE_range[0], sigmaE_range[1], 100)
 
     #np.arange(0.1,1500,0.1)
     EDLNU = Earth_Density_Layer_NU()
@@ -3008,17 +3056,17 @@ def plotMeanFreePath(FDMn,plotConstraints=True,cmap_name='viridis'):
     plt.figure(figsize=(goldenx,goldeny))
 
 
-    plt.xlim(0.6,1000)
+    plt.xlim(mX_range[0], mX_range[1])
     
     plt.xscale('log')
     plt.yscale('log')
     if FDMn == 0:
         medtitstr= 'Heavy'
         xy = (4,5e-35)
-        plt.ylim(1e-42,1e-28)
+        plt.ylim(sigmaE_range[0], sigmaE_range[1])
     elif FDMn == 2:
         xy = (7,1e-34)
-        plt.ylim(1e-38,1e-29)
+        plt.ylim(sigmaE_range[0], sigmaE_range[1])
         medtitstr = 'Light'
     plt.title(f'{medtitstr} Mediator Mean Free Path' +  ' [$R_{\\oplus}$]',fontsize=large,y=1.01)
     plt.xlabel('$m_\chi$ [MeV]')
@@ -3027,7 +3075,7 @@ def plotMeanFreePath(FDMn,plotConstraints=True,cmap_name='viridis'):
 
     
     ax = plt.gca()
-    ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+    ax.get_xaxis().set_major_formatter(matplotlib.ticker.FormatStrFormatter('%g'))
 
     if FDMn == 0:
         plt.text(0.85,0.23,'MFP $= R_{\\bigoplus}$',fontsize=medium,color=color_re,horizontalalignment='center',verticalalignment='center',transform = ax.transAxes)
@@ -3398,7 +3446,3 @@ def plot_silicon_1e_limit_comparison(plotsig=False):
     plt.savefig('figures/Silicon/direct_mod_limit_comparison_fdmq2.pdf')
     plt.show()
     plt.close()
-
-
-
-
