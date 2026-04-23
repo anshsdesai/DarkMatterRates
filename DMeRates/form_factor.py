@@ -112,6 +112,46 @@ class form_factorQEDark(object):
      #    self.Eprefactor = materials[self.material][1]
         
 
+class form_factorQCDark2(object):
+    """Form factor wrapper for QCDark2 dielectric function HDF5 files.
+
+    Loads ε(q,ω) computed via finite-momentum RPA (with optional LFE) from the
+    QCDark2 package (arXiv:2603.12326). Exposes the energy loss function and
+    dynamic structure factor used in the QCDark2 rate integral.
+
+    Args:
+        filename (str): Path to QCDark2 HDF5 file (e.g. Si_comp.h5)
+        band_gap: Band gap energy with numericalunits applied (from qcdark2_band_gaps)
+    """
+    def __init__(self, filename, band_gap):
+        import h5py
+        print(f"Using QCDark2 dielectric function from file: {filename}")
+        h5 = h5py.File(filename, 'r')
+        self.eps    = h5['epsilon'][:]           # complex128 (N_q, N_E)
+        self.q_raw  = h5['q'][:]                 # momentum in units of alpha*m_e
+        self.E_raw  = h5['E'][:]                 # energy in eV
+        self.M_cell = float(h5.attrs['M_cell'])  # eV
+        self.V_cell = float(h5.attrs['V_cell'])  # Bohr^3 = (alpha*m_e)^-3
+        self.dE     = float(h5.attrs['dE'])      # eV
+        h5.close()
+
+        self.band_gap = band_gap
+        self.band_gap_eV = float(band_gap / nu.eV)
+        # mCell in mass units (consistent with QCDark form_factor.mCell)
+        self.mCell = self.M_cell * nu.eV / nu.c0**2
+
+    def elf(self):
+        """Energy loss function ELF = Im(ε) / |ε|²."""
+        import numpy as np
+        return np.imag(self.eps) / (np.real(self.eps)**2 + np.imag(self.eps)**2)
+
+    def S(self):
+        """Dynamic structure factor S(q,E) = ELF × q² / (2π α), q in units of α·m_e."""
+        import numpy as np
+        alpha = 1.0 / 137.03599908
+        return self.elf() * self.q_raw[:, None]**2 / (2 * np.pi * alpha)
+
+
 class formFactorNoble(object):
      #TODO
      #should change from pickle files  to better format to avoid compatability issues
@@ -149,4 +189,3 @@ class formFactorNoble(object):
 
 
      
-

@@ -63,10 +63,30 @@ Sigapsize= 3.8 *nu.eV
 Gegapsize = 3. * nu.eV
 
 ATOMIC_WEIGHT = {
-    'Xe': 131.293 *nu.amu,
-    "Ar": 39.948*nu.amu,
-    "Ge": 72.64 * nu.amu,
-    "Si": 28.0855*nu.amu,
+    'Xe':      131.293  * nu.amu,
+    'Ar':       39.948  * nu.amu,
+    'Ge':       72.64   * nu.amu,
+    'Si':       28.0855 * nu.amu,
+    'GaAs':    144.645  * nu.amu,
+    'SiC':      40.096  * nu.amu,
+    'Diamond':  12.011  * nu.amu,
+}
+
+"""QCDark2 Material Parameters (scissor-corrected band gaps matching QCDark2 .in defaults)"""
+qcdark2_band_gaps = {
+    'Si':      1.11 * nu.eV,
+    'Ge':      0.67 * nu.eV,
+    'GaAs':    1.42 * nu.eV,
+    'SiC':     2.36 * nu.eV,
+    'Diamond': 5.47 * nu.eV,
+}
+
+qcdark2_pair_energies = {
+    'Si':      3.8  * nu.eV,
+    'Ge':      3.0  * nu.eV,
+    'GaAs':    4.6  * nu.eV,
+    'SiC':     8.4  * nu.eV,
+    'Diamond': 13.0 * nu.eV,
 }
 
 

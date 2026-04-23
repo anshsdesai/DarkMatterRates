@@ -1,6 +1,14 @@
 from .Constants import *
 from .DM_Halo import DM_Halo_Distributions
-from .form_factor import form_factor,form_factorQEDark,formFactorNoble
+from .form_factor import form_factor
+from .interpolation import interp1d
+from .backends import QCDarkBackend, QCDark2Backend, QEDarkBackend, WimpratesBackend, simpson_uniform
+from .response import build_probability_table, rebuild_step_probability_table
+from .units import (
+    LIGHT_SPEED_KM_PER_S as LIGHT_SPEED,
+    qcdark2_astro_model_from_numeric,
+    qcdark2_astro_model_from_unitful,
+)
 import numericalunits as nu
 
 
@@ -13,35 +21,58 @@ import numericalunits as nu
 
 
 
+_SEMICONDUCTOR_MATERIALS = ('Si', 'Ge', 'GaAs', 'SiC', 'Diamond')
+_NOBLE_MATERIALS = ('Xe', 'Ar')
+
 class DMeRate:
     """Class for calculating dark matter-electron scattering rates in various materials.
-    
+
     Provides methods for computing DM-electron interaction rates in:
-    - Semiconductor crystals (Si, Ge)
+    - Semiconductor crystals (Si, Ge, GaAs, SiC, Diamond)
     - Noble elements (Xe, Ar)
-    
+
     Args:
-        material (str): Target material ('Si', 'Ge', 'Xe', or 'Ar')
-        QEDark (bool): Use QEDark form factors (default False)
+        material (str): Target material ('Si', 'Ge', 'GaAs', 'SiC', 'Diamond', 'Xe', 'Ar')
+        form_factor_type (str): Form factor source: 'qcdark' (default), 'qedark', or 'qcdark2'.
+        qcdark2_variant (str): QCDark2 variant when form_factor_type='qcdark2'.
+            One of 'composite' (default), 'lfe', or 'nolfe'.
         device (str, optional): Computation device ('cpu', 'cuda', etc.)
     """
-    def __init__(self,material,QEDark=False,device=None):
+    def __init__(self, material, form_factor_type=None,
+                 qcdark2_variant='composite', device=None):
         """Initialize rate calculator with material properties and computation settings."""
 
         import torch
-        import numpy as np
         import os
-        #To assign a unit to a quantity, multiply by the unit, e.g. my_length = 100 * mm. (In normal text you would write “100 mm”, but unfortunately Python does not have “implied multiplication”.)
-        #To express a dimensionful quantity in a certain unit, divide by that unit, e.g. when you see my_length / cm, you pronounce it “my_length expressed in cm”.
-        #Form factor object has units already applied 
+
+        # Resolve form_factor_type from legacy QEDark bool if not given explicitly
+        if material in _NOBLE_MATERIALS:
+            if form_factor_type not in (None, 'wimprates'):
+                raise ValueError(
+                    f"Noble gas material '{material}' uses form_factor_type='wimprates'."
+                )
+            form_factor_type = 'wimprates'
+        elif form_factor_type is None:
+            form_factor_type = 'qedark' if QEDark else 'qcdark'
+        self.form_factor_type = form_factor_type
+        self.qcdark2_variant = qcdark2_variant
 
         self.module_dir = os.path.dirname(__file__)
-        self.v0 = v0 
-        self.vEarth = vEarth 
+        self.v0 = v0
+        self.vEarth = vEarth
         self.vEscape = vEscape
-        self.rhoX = rhoX 
+        self.rhoX = rhoX
         self.cross_section = crosssection
         self.material = material
+        self.backend = None
+        self.qcdark2_backend = None
+        self._astro_numeric = qcdark2_astro_model_from_unitful(
+            v0,
+            vEarth,
+            vEscape,
+            rhoX,
+            crosssection,
+        )
         cuda_available = torch.cuda.is_available()
         mps_available = torch.backends.mps.is_available()
 
@@ -55,132 +86,55 @@ class DMeRate:
         #     self.device = 'mps'
         #     self.default_dtype = torch.float32
         #     self.dtype_str = 'float32'
-            
+
         else:
             print("CUDA/MPS GPU not found, performing calculations on cpu (if you are doing this on apple silicon you can change your device to mps if you'd like)")
             self.device = 'cpu'
             self.default_dtype = torch.float64
             self.dtype_str = 'float64'
 
-        
-
         if device is not None:
             print(f"You have manually specified your device to be: {device}. Overriding default")
-            self.device=device
+            self.device = device
 
         torch.set_default_device(self.device)
         torch.set_default_dtype(self.default_dtype)
         self.DM_Halo = DM_Halo_Distributions(self.v0,self.vEarth,self.vEscape,self.rhoX,self.cross_section)
 
-        if material == 'Si' or material == 'Ge':
-            binsizes = {
-                'Si': Sigapsize,
-                'Ge': Gegapsize
-            }
- 
-            if QEDark:
-                form_factor_file = f'../form_factors/QEDark/{material}_f2.txt'
-            else:
-                form_factor_file = f'../form_factors/QCDark/{material}_final.hdf5'
-            self.bin_size = binsizes[material] 
+        if material in _SEMICONDUCTOR_MATERIALS:
+            self.backend = self._build_semiconductor_backend()
+            self.probabilities = build_probability_table(self)
 
-        
-            form_factor_file_filepath = os.path.join(self.module_dir,form_factor_file)
-            if QEDark:
-                ffactor = form_factorQEDark(form_factor_file_filepath)
-            else:
-                ffactor = form_factor(form_factor_file_filepath)
-
-            self.ionization_func = self.RKProbabilities
-
-
-
-
-
-        
-            
-            self.form_factor = ffactor
-            nE = np.shape(self.form_factor.ff)[1]
-            nQ = np.shape(self.form_factor.ff)[0]
-            self.nE = nE
-            self.nQ = nQ
-            if QEDark:
-                self.qiArr = torch.arange(1,nQ+1) #for indexing
-                self.qArr = torch.clone(self.qiArr) * torch.tensor(self.form_factor.dq)
-                self.Earr = torch.arange(nE)*torch.tensor(self.form_factor.dE )
-            else:
-                self.qiArr = torch.arange(nQ) #for indexing
-                self.qArr = torch.clone(self.qiArr) * torch.tensor(self.form_factor.dq,dtype=torch.get_default_dtype()) + (torch.tensor(self.form_factor.dq,dtype=torch.get_default_dtype()) / torch.tensor(2.))
-                self.Earr = torch.arange(nE)*torch.tensor(self.form_factor.dE,dtype=torch.get_default_dtype()) + (torch.tensor(self.form_factor.dE,dtype=torch.get_default_dtype())/ torch.tensor(2.))
-            self.Ei_array = torch.floor(torch.round((self.Earr/nu.eV)*10)).int() #for indexing
-
-            prob_fn_tiled = []
-            for ne in torch.arange(1,21):
-                temp = self.ionization_func(ne)
-                temp = torch.where(torch.isnan(temp),0,temp)
-                prob_fn_tiled.append(temp)
-            prob_fn_tiled = torch.stack(prob_fn_tiled)
-            self.probabilities = prob_fn_tiled
-
-            # from scipy.interpolate import RegularGridInterpolator
-            # qArr_unit = self.qArr /(nu.eV/nu.c0)
-            # Earr_unit = self.Earr.cpu().numpy()/nu.eV
-
-            # # construct an interpolator to allow for flexible number of q in integration
-            # #warning, don't change this too drastically from the total number of qs, the form factor is not very smooth
-            # ff_interp = RegularGridInterpolator(
-            #         (qArr_unit,Earr_unit),
-            #         self.form_factor.ff,
-            #         bounds_error=False, fill_value=-float('inf'),)
-            # numq = len(self.qArr)
-            # numE = len(self.Earr)
-            # ff_interp_tensor = torch.zeros((numq,numE))
-            # qGrid = np.linspace(self.qArr.min(),self.qArr.max(),numq) /(nu.eV/nu.c0)
-            
-            # for i,E in enumerate(Earr_unit):
-            #     ff_interp_tensor[:,i] = torch.tensor(ff_interp((qGrid,E)))
-
-            # self.ff_interp_tensor = ff_interp_tensor
-
-            self.QEDark = QEDark
-        elif material == 'Xe' or material == 'Ar':
-            import numpy as np
-            Earr = np.geomspace(1, 400, 100) * nu.eV
-
-            logkArr  = np.log(Earr / ry) / 2
-            self.Earr = torch.tensor(Earr)
-            form_factor_file = f'../form_factors/wimprates/{material}_dme_ionization_ff.pkl'        
-            form_factor_file_filepath = os.path.join(self.module_dir,form_factor_file)
-        
-            formfactor = formFactorNoble(form_factor_file_filepath)
-            self.form_factor = formfactor
-
-            # lnqiArr_dict = {}
-            qArrdict = {}
-            ffdata_dict  ={}
-            numqs = 1001
-
-            for shell_key in formfactor.keys:
-
-                qmax = (np.exp(formfactor.shell_data[shell_key]['lnqs'].max())) * nu.me * nu.c0 * nu.alphaFS 
-                qmin = (np.exp(formfactor.shell_data[shell_key]['lnqs'].min())) * nu.eV / nu.c0
-
-                qArr = torch.linspace(qmin,qmax,numqs)
-                lnqi = np.log(qArr.cpu() / (nu.me *nu.c0 * nu.alphaFS))
-                ffdata = np.zeros((len(Earr),numqs))
-                for i,k in enumerate(logkArr):
-                    ffdata[i,:] = formfactor.shell_data[shell_key]['log10ffsquared_itp']((k,lnqi))
-                ffdata = 10**ffdata
-                ffdata_dict[shell_key] = torch.tensor(ffdata)
-                qArrdict[shell_key] = qArr.to(self.device)
-
-            self.qArrdict = qArrdict
-            self.form_factor.ff = ffdata_dict
+        elif material in _NOBLE_MATERIALS:
+            self.backend = WimpratesBackend(material, self.module_dir)
+            self.backend.attach(self)
 
         else:
-            raise ValueError('The form factors for the material you are trying to study have not been calculated.')
+            raise ValueError(f"Material '{material}' is not supported. "
+                             f"Semiconductors: {_SEMICONDUCTOR_MATERIALS}, "
+                             f"Noble gases: {_NOBLE_MATERIALS}.")
         
-    
+    def _build_semiconductor_backend(self):
+        """Select and attach the configured semiconductor source-family backend."""
+        if self.form_factor_type == 'qcdark':
+            backend = QCDarkBackend(self.material, self.module_dir)
+            backend.attach(self)
+            return backend
+        if self.form_factor_type == 'qedark':
+            backend = QEDarkBackend(self.material, self.module_dir)
+            backend.attach(self)
+            return backend
+        if self.form_factor_type == 'qcdark2':
+            return QCDark2Backend.build_for_rate(
+                self,
+                self.material,
+                self.qcdark2_variant,
+            )
+        raise ValueError(
+            f"Unknown form_factor_type '{self.form_factor_type}'. "
+            f"Choose from: 'qcdark', 'qedark', 'qcdark2'."
+        )
+
 
     
 
@@ -201,6 +155,9 @@ class DMeRate:
         self.vEscape = vEscape* (nu.km / nu.s)
         self.rhoX = rhoX* nu.eV / (nu.cm**3)
         self.cross_section = crosssection* nu.cm**2
+        self._astro_numeric.update(
+            qcdark2_astro_model_from_numeric(v0, vEarth, vEscape, rhoX, crosssection)
+        )
         self.DM_Halo = DM_Halo_Distributions(self.v0,self.vEarth,self.vEscape,self.rhoX)
 
    
@@ -239,8 +196,6 @@ class DMeRate:
         """
         from numpy import loadtxt
         import torch
-        # from scipy.interpolate import interp1d
-        from torchinterp1d import interp1d
         import os
         filepath = os.path.join(self.module_dir,'p100k.dat')
         p100data = loadtxt(filepath)
@@ -263,6 +218,61 @@ class DMeRate:
         """
         #assuming value is in cm*2
         self.cross_section = crosssection *nu.cm**2
+        self._astro_numeric['sigma_e'] = float(crosssection)
+
+    def _coerce_1d_tensor(self, values):
+        """Convert scalars/sequences/arrays to a 1D tensor on the active device."""
+        import numpy as np
+        import torch
+
+        if isinstance(values, torch.Tensor):
+            tensor = values.to(self.device)
+        elif isinstance(values, np.ndarray):
+            tensor = torch.from_numpy(values).to(self.device)
+        elif isinstance(values, (list, tuple)):
+            tensor = torch.tensor(values, device=self.device)
+        else:
+            tensor = torch.tensor([values], device=self.device)
+
+        if tensor.ndim == 0:
+            tensor = tensor.unsqueeze(0)
+        return tensor
+
+    def _current_astro_model_numeric(self):
+        """Return the explicit numeric astro model used by the QCDark2 backend."""
+        return dict(self._astro_numeric)
+
+    def _qcdark2_eta_grid(self, mX_mev, halo_model, halo_id_params=None):
+        """Return eta(vmin) on the QCDark2 q/E grid in upstream units."""
+        import torch
+
+        astro_model = self._current_astro_model_numeric()
+        mX_eV = float(mX_mev) * 1e6
+        device = self.device
+        dtype = self.default_dtype
+
+        if halo_id_params is not None:
+            vmins_kms = self.qcdark2_backend.vmin_grid_kms(mX_eV, device, dtype)
+            params = halo_id_params.to(self.device) if isinstance(halo_id_params, torch.Tensor) else torch.tensor(
+                halo_id_params,
+                device=self.device,
+                dtype=dtype,
+            )
+            eta_unitful = self.DM_Halo.step_function_eta(vmins_kms * (nu.km / nu.s), params)
+            return eta_unitful / (nu.s / nu.km) * LIGHT_SPEED
+
+        if halo_model in ('shm', 'imb'):
+            return self.qcdark2_backend.eta_mb(mX_eV, astro_model, device, dtype)
+
+        if not hasattr(self, 'file_vmins') or not hasattr(self, 'file_etas'):
+            raise RuntimeError(
+                "Halo data has not been loaded for this qcdark2 calculation. "
+                "Call setup_halo_data(...) before evaluating file-based halo models."
+            )
+
+        file_vmins = (self.file_vmins / (nu.km / nu.s)).detach().cpu().numpy()
+        file_etas = (self.file_etas / (nu.s / nu.km)).detach().cpu().numpy()
+        return self.qcdark2_backend.eta_from_file(mX_eV, file_vmins, file_etas, device, dtype)
 
 
     def FDM(self,q,n):
@@ -317,15 +327,7 @@ class DMeRate:
     
     def change_to_step(self):
         """Switch to step function probability model."""
-        import torch
-        self.ionization_func = self.step_probabilities
-        prob_fn_tiled = []
-        for ne in torch.arange(1,21):
-            temp = self.ionization_func(ne)
-            temp = torch.where(torch.isnan(temp),0,temp)
-            prob_fn_tiled.append(temp)
-        prob_fn_tiled = torch.stack(prob_fn_tiled)
-        self.probabilities = prob_fn_tiled
+        rebuild_step_probability_table(self)
     
 
     def TFscreening(self,DoScreen):
@@ -559,7 +561,6 @@ class DMeRate:
 
         
         else: #from file
-            from torchinterp1d import interp1d
             import torch
             file_vmins = self.file_vmins
             file_etas = self.file_etas
@@ -759,7 +760,45 @@ class DMeRate:
             return returndict
 
         return band_gap_result  #result is in R / kg /year / eV
-    
+
+    def vectorized_dRdE_qcdark2(self, mX, FDMn, halo_model, halo_id_params=None):
+        """Calculate dR/dE using QCDark2 dielectric function (RPA screening embedded in ε).
+
+        Uses the dynamic structure factor S(q,E) = ELF × q²/(2πα) directly, matching the
+        QCDark2 rate formula (arXiv:2603.12326). No additional Thomas-Fermi screening is
+        applied — RPA screening is already encoded in ε.
+
+        Args:
+            mX: DM mass in MeV (scalar tensor)
+            FDMn: Form factor model (0=heavy mediator, 2=light mediator)
+            halo_model: Velocity distribution model string
+            halo_id_params: Step-function parameters for halo-independent analysis
+
+        Returns:
+            dR/dE tensor of shape (N_E,), units implicit 1/kg/year/eV
+        """
+        import torch
+
+        torch.set_default_device(self.device)
+        torch.set_default_dtype(self.default_dtype)
+
+        mX_mev = float(mX.item()) if isinstance(mX, torch.Tensor) else float(mX)
+        mX_eV = mX_mev * 1e6
+        astro_model = self._current_astro_model_numeric()
+        eta_grid = self._qcdark2_eta_grid(mX_mev, halo_model, halo_id_params=halo_id_params)
+        spectrum_numeric = self.qcdark2_backend.differential_rate(
+            mX_eV,
+            FDMn,
+            astro_model,
+            eta_grid,
+            self.device,
+            self.default_dtype,
+        )
+
+        # Convert from explicit physical units back into the repository's implicit
+        # units so downstream n_e folding remains backward compatible.
+        return spectrum_numeric / (nu.kg * nu.year * nu.eV)
+
     def calculate_semiconductor_rates(self,mX_array,halo_model,FDMn,ne,integrate=True,DoScreen=True,isoangle=None,halo_id_params=None,useVerne=False,calcErrors=None,debug=False):
         """Calculate rates for semiconductor crystals (Si, Ge).
         
@@ -780,65 +819,49 @@ class DMeRate:
             Calculated rates
         """
         import torch
-        import numpy
-        if self.material == 'Ge':
-            if self.ionization_func is not self.step_function:
+        if self.material == 'Ge' and self.form_factor_type != 'qcdark2':
+            if self.ionization_func is not self.step_probabilities:
                 self.change_to_step()
 
-        
-        if type(ne) != torch.Tensor:
-            if type(ne) == int:
-                nes = torch.tensor([ne])
-            elif type(ne) == list:
-                nes = torch.tensor(ne)
-            elif type(ne) == numpy.ndarray:
-                nes = torch.from_numpy(ne)
-                nes = nes.to(self.device)
-            else:
-                try:
-                    nes = torch.tensor(ne)
-                except:
-                    print('unknown data type')
-        else:
-            nes = ne
-        
-        #assume mX_array in MeV
-
-
+        nes = self._coerce_1d_tensor(ne).long()
         prob_fn_tiled = self.probabilities[nes-1,:]
-
-
-
-        if type(mX_array) != torch.tensor:
-            if type(mX_array) == int or type(mX_array) == float:
-                    mX_array = torch.tensor([mX_array])
-            elif type(mX_array) == list:
-                mX_array = torch.tensor(mX_array)
-            elif type(mX_array) == numpy.ndarray:
-                mX_array = torch.from_numpy(mX_array)
-                mX_array = mX_array.to(self.device)
-            else:
-                try:
-                    mX_array = torch.tensor([mX_array])
-                except:
-                    print('unknown data type')
-
+        mX_array = self._coerce_1d_tensor(mX_array).to(torch.get_default_dtype())
         dRdnEs = torch.zeros((len(mX_array),len(nes)))
 
         for m,mX in enumerate(mX_array):
-            self.setup_halo_data(mX,FDMn,halo_model,isoangle=isoangle,useVerne=useVerne,calcErrors=calcErrors)
-            dRdE = self.vectorized_dRdE(mX,FDMn,halo_model,DoScreen=DoScreen,halo_id_params=halo_id_params,integrate=integrate) #this is in 1 /kg/year/eV , but units are still implicit
-
-
-            if integrate:
-                #TODO
-                #maybe change this to simpsons rule too
-                dRdne = torch.trapezoid(dRdE*prob_fn_tiled,x=self.Earr, axis = 1)
+            if self.form_factor_type == 'qcdark2':
+                if halo_id_params is None and halo_model not in ('shm', 'imb'):
+                    self.setup_halo_data(
+                        mX,
+                        FDMn,
+                        halo_model,
+                        isoangle=isoangle,
+                        useVerne=useVerne,
+                        calcErrors=calcErrors,
+                    )
+                dRdE = self.vectorized_dRdE_qcdark2(mX,FDMn,halo_model,halo_id_params=halo_id_params)
+                dRdne = simpson_uniform(
+                    dRdE * prob_fn_tiled,
+                    self.qcdark2_backend.E_step_eV,
+                    dim=1,
+                ) * nu.eV
             else:
+                self.setup_halo_data(
+                    mX,
+                    FDMn,
+                    halo_model,
+                    isoangle=isoangle,
+                    useVerne=useVerne,
+                    calcErrors=calcErrors,
+                )
+                dRdE = self.vectorized_dRdE(mX,FDMn,halo_model,DoScreen=DoScreen,halo_id_params=halo_id_params,integrate=integrate)
+                if integrate:
+                    dRdne = torch.trapezoid(dRdE*prob_fn_tiled,x=self.Earr, axis = 1)
+                else:
                 # if self.QEDark:
                 # dRdne = torch.sum(dRdE*prob_fn_tiled, axis = 1) * (1*nu.eV)
                 # else:
-                dRdne = torch.sum(dRdE*prob_fn_tiled*self.form_factor.dE*10, axis = 1) #still not sure why I need a factor of 10 here to match
+                    dRdne = torch.sum(dRdE*prob_fn_tiled*self.form_factor.dE*10, axis = 1) #still not sure why I need a factor of 10 here to match
 
             dRdnEs[m,:] = dRdne
         if debug:
@@ -1224,6 +1247,74 @@ class DMeRate:
             return dRdnEs,shells
         return dRdnEs.T
 
+    def calculate_spectrum(self,mX_array,halo_model,FDMn,integrate=True,DoScreen=True,isoangle=None,halo_id_params=None,useVerne=False,calcErrors=None):
+        """Return semiconductor recoil spectra in physical units."""
+        import warnings
+        import numpy as np
+
+        if self.material not in _SEMICONDUCTOR_MATERIALS:
+            raise ValueError("calculate_spectrum is currently implemented for semiconductor targets only.")
+
+        if self.form_factor_type == 'qcdark2' and DoScreen:
+            warnings.warn(
+                "DoScreen=True has no effect for form_factor_type='qcdark2': RPA screening "
+                "is already embedded in the dielectric function. No Thomas-Fermi screening "
+                "will be applied.", UserWarning, stacklevel=2)
+
+        mX_array = self._coerce_1d_tensor(mX_array).to(self.default_dtype)
+        spectra = []
+
+        for mX in mX_array:
+            if self.form_factor_type == 'qcdark2':
+                if halo_id_params is None and halo_model not in ('shm', 'imb'):
+                    self.setup_halo_data(
+                        mX,
+                        FDMn,
+                        halo_model,
+                        isoangle=isoangle,
+                        useVerne=useVerne,
+                        calcErrors=calcErrors,
+                    )
+                dRdE = self.vectorized_dRdE_qcdark2(mX, FDMn, halo_model, halo_id_params=halo_id_params)
+            else:
+                self.setup_halo_data(
+                    mX,
+                    FDMn,
+                    halo_model,
+                    isoangle=isoangle,
+                    useVerne=useVerne,
+                    calcErrors=calcErrors,
+                )
+                dRdE = self.vectorized_dRdE(
+                    mX,
+                    FDMn,
+                    halo_model,
+                    DoScreen=DoScreen,
+                    halo_id_params=halo_id_params,
+                    integrate=integrate,
+                )
+            spectra.append((dRdE * nu.kg * nu.year * nu.eV).detach().cpu())
+
+        energy_eV = (self.Earr / nu.eV).detach().cpu().numpy()
+        spectrum_array = np.stack([spec.numpy() for spec in spectra], axis=0)
+        return energy_eV, spectrum_array
+
+    def calculate_total_rate(self,mX_array,halo_model,FDMn,integrate=True,DoScreen=True,isoangle=None,halo_id_params=None,useVerne=False,calcErrors=None):
+        """Return semiconductor total rates in events/kg/year."""
+        from scipy.integrate import simpson
+
+        energy_eV, spectra = self.calculate_spectrum(
+            mX_array,
+            halo_model,
+            FDMn,
+            integrate=integrate,
+            DoScreen=DoScreen,
+            isoangle=isoangle,
+            halo_id_params=halo_id_params,
+            useVerne=useVerne,
+            calcErrors=calcErrors,
+        )
+        return simpson(spectra, x=energy_eV, axis=1)
 
 
 
@@ -1234,8 +1325,9 @@ class DMeRate:
 
 
 
-    def calculate_rates(self,mX_array,halo_model,FDMn,ne,integrate=True,DoScreen=True,isoangle=None,halo_id_params=None,useVerne=False,calcErrors=None,debug=False):
-        """Main rate calculation method that routes to appropriate implementation.
+
+    def calculate_ne_rates(self,mX_array,halo_model,FDMn,ne,integrate=True,DoScreen=True,isoangle=None,halo_id_params=None,useVerne=False,calcErrors=None,debug=False):
+        """Calculate electron-count/electron-hole-pair binned rates.
         
         Args:
             mX_array: Array of DM masses
@@ -1251,15 +1343,37 @@ class DMeRate:
             debug: Return debug information
             
         Returns:
-            Calculated rates
+            Calculated rates binned by detected electron count
         """
 
-        if self.material == 'Si' or self.material =='Ge':
+        import warnings
+        if self.form_factor_type == 'qcdark2' and DoScreen:
+            warnings.warn(
+                "DoScreen=True has no effect for form_factor_type='qcdark2': RPA screening "
+                "is already embedded in the dielectric function. No Thomas-Fermi screening "
+                "will be applied.", UserWarning, stacklevel=2)
+        if self.material in _SEMICONDUCTOR_MATERIALS:
             return self.calculate_semiconductor_rates(mX_array,halo_model,FDMn,ne,integrate,DoScreen,isoangle=isoangle,halo_id_params=halo_id_params,useVerne=useVerne,calcErrors=calcErrors,debug=debug)
-        if self.material == 'Xe' or self.material == 'Ar':
+        if self.material in _NOBLE_MATERIALS:
             return self.calculate_nobleGas_rates(mX_array,halo_model,FDMn,ne,isoangle=isoangle,halo_id_params=halo_id_params,useVerne=useVerne,calcErrors=calcErrors,debug=debug,returnShells=False)
     
     
+    def calculate_rates(self,mX_array,halo_model,FDMn,ne,integrate=True,DoScreen=True,isoangle=None,halo_id_params=None,useVerne=False,calcErrors=None,debug=False):
+        """Backward-compatible alias for ``calculate_ne_rates``."""
+        return self.calculate_ne_rates(
+            mX_array,
+            halo_model,
+            FDMn,
+            ne,
+            integrate=integrate,
+            DoScreen=DoScreen,
+            isoangle=isoangle,
+            halo_id_params=halo_id_params,
+            useVerne=useVerne,
+            calcErrors=calcErrors,
+            debug=debug,
+        )
+
     
 
     def generate_dat(self,dm_masses,ne_bins,fdm,dm_halo_model,DoScreen=False,write=True,tag=""):
@@ -1305,9 +1419,14 @@ class DMeRate:
         FDM_Dir = os.path.join(self.module_dir,'Rates/')
         screen = '_screened' if DoScreen else ''
         integrate = True
-        if self.material == 'Si':
-            qestr = '_qedark' if self.QEDark else '_qcdark'
-            integrate = False if self.QEDark else True
+        ff_tag_map = {
+            'qcdark':  '_qcdark',
+            'qedark':  '_qedark',
+            'qcdark2': f'_qcdark2_{self.qcdark2_variant}',
+        }
+        qestr = ff_tag_map.get(self.form_factor_type, f'_{self.form_factor_type}')
+        if self.form_factor_type == 'qedark':
+            integrate = False
 
         
       
@@ -1342,4 +1461,3 @@ class DMeRate:
         
 
     
-
