@@ -6,7 +6,8 @@ import numericalunits as nu
 
 
 
-
+_SEMICONDUCTOR_MATERIALS = ('Si', 'Ge', 'GaAs', 'SiC', 'Diamond')
+_NOBLE_MATERIALS = ('Xe', 'Ar')
 
 
 
@@ -25,7 +26,7 @@ class DMeRate:
         QEDark (bool): Use QEDark form factors (default False)
         device (str, optional): Computation device ('cpu', 'cuda', etc.)
     """
-    def __init__(self,material,QEDark=False,device=None):
+    def __init__(self,material,form_factor_type=False,device=None):
         """Initialize rate calculator with material properties and computation settings."""
 
         import torch
@@ -34,6 +35,18 @@ class DMeRate:
         #To assign a unit to a quantity, multiply by the unit, e.g. my_length = 100 * mm. (In normal text you would write “100 mm”, but unfortunately Python does not have “implied multiplication”.)
         #To express a dimensionful quantity in a certain unit, divide by that unit, e.g. when you see my_length / cm, you pronounce it “my_length expressed in cm”.
         #Form factor object has units already applied 
+
+        if material in _NOBLE_MATERIALS:
+            if form_factor_type not in (None, 'wimprates'):
+                raise ValueError(
+                    f"Noble gas material '{material}' uses form_factor_type='wimprates'."
+                )
+            form_factor_type = 'wimprates'
+        elif form_factor_type is None:
+            form_factor_type = 'qcdark' #default to qcdark
+            
+        self.form_factor_type = form_factor_type.lower()
+        self.QEDark = True if self.form_factor_type == 'qedark' else False
 
         self.module_dir = os.path.dirname(__file__)
         self.v0 = v0 
@@ -78,7 +91,7 @@ class DMeRate:
                 'Ge': Gegapsize
             }
  
-            if QEDark:
+            if self.QEDark:
                 form_factor_file = f'../form_factors/QEDark/{material}_f2.txt'
             else:
                 form_factor_file = f'../form_factors/QCDark/{material}_final.hdf5'
@@ -86,7 +99,7 @@ class DMeRate:
 
         
             form_factor_file_filepath = os.path.join(self.module_dir,form_factor_file)
-            if QEDark:
+            if self.QEDark:
                 ffactor = form_factorQEDark(form_factor_file_filepath)
             else:
                 ffactor = form_factor(form_factor_file_filepath)
@@ -104,7 +117,7 @@ class DMeRate:
             nQ = np.shape(self.form_factor.ff)[0]
             self.nE = nE
             self.nQ = nQ
-            if QEDark:
+            if self.QEDark:
                 self.qiArr = torch.arange(1,nQ+1) #for indexing
                 self.qArr = torch.clone(self.qiArr) * torch.tensor(self.form_factor.dq)
                 self.Earr = torch.arange(nE)*torch.tensor(self.form_factor.dE )
@@ -142,7 +155,7 @@ class DMeRate:
 
             # self.ff_interp_tensor = ff_interp_tensor
 
-            self.QEDark = QEDark
+            # self.QEDark = QEDark
         elif material == 'Xe' or material == 'Ar':
             import numpy as np
             Earr = np.geomspace(1, 400, 100) * nu.eV
@@ -239,17 +252,16 @@ class DMeRate:
         """
         from numpy import loadtxt
         import torch
-        # from scipy.interpolate import interp1d
-        from torchinterp1d import interp1d
+        from torchinterp1d.interp1d import Interp1d
         import os
         filepath = os.path.join(self.module_dir,'p100k.dat')
         p100data = loadtxt(filepath)
         pEV = torch.tensor(p100data[:,0],dtype=torch.get_default_dtype()) *nu.eV
-        
+
         file_probabilities = torch.tensor(p100data.T,dtype=torch.get_default_dtype())#[:,:]
         file_probabilities = file_probabilities[ne]
 
-        probabilities = interp1d(pEV, file_probabilities,self.Earr).flatten()# kind = 'linear',bounds_error=False,fill_value=0)
+        probabilities = Interp1d.apply(pEV, file_probabilities, self.Earr).flatten()# kind = 'linear',bounds_error=False,fill_value=0)
         # probabilities = p100_func(self.Earr)
         # probabilities = torch.from_numpy(probabilities)
         # probabilities = probabilities.to(self.device)
@@ -559,12 +571,12 @@ class DMeRate:
 
         
         else: #from file
-            from torchinterp1d import interp1d
+            from torchinterp1d.interp1d import Interp1d
             import torch
             file_vmins = self.file_vmins
             file_etas = self.file_etas
- 
-            etas = interp1d(file_vmins,file_etas,vMins) # inverse velocity
+
+            etas = Interp1d.apply(file_vmins, file_etas, vMins) # inverse velocity
             #make sure to avoid interpolation issues where there isn't data
             etas = torch.where((vMins<file_vmins[0]) | (vMins > file_vmins[-1]) | (torch.isnan(etas)) ,0,etas)
             
@@ -782,7 +794,7 @@ class DMeRate:
         import torch
         import numpy
         if self.material == 'Ge':
-            if self.ionization_func is not self.step_function:
+            if self.ionization_func is not self.step_probabilities:
                 self.change_to_step()
 
         
