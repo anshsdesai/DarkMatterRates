@@ -217,7 +217,6 @@ class DM_Halo_Distributions:
         """
 
         from scipy.integrate import nquad
-        from Constants import q_Tsallis
         import numpy as np
         """
         Tsallis Model, q = .773, v0 = 267.2 km/s, and vesc = 560.8 km/s
@@ -283,7 +282,6 @@ class DM_Halo_Distributions:
         Returns:
             Velocity distribution eta(vMin) for DPL model
         """
-        from Constants import k_DPL
         from scipy.integrate import nquad
         import numpy as np
         """

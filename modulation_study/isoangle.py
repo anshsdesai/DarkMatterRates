@@ -7,6 +7,7 @@ from scipy.interpolate import interp1d, interp2d
 from scipy.interpolate import UnivariateSpline
 import astropy
 from astropy.coordinates import EarthLocation
+import astropy.units as u
 import csv
 from pylab import meshgrid,cm,imshow,contour,clabel,colorbar,axis,title,show
 from numpy import exp,arange
@@ -148,10 +149,42 @@ def LabPos(lat,lon,depth,n):
     coord = np.array([r*np.sin(theta)*np.cos(phi),r*np.sin(theta)*np.sin(phi),r*np.cos(theta)])
     return Equatorial2Galactic(coord,n/36525)
 
+def _quantity_to_value(quantity, unit):
+    """Return a float from an Astropy Quantity or a plain numeric value."""
+    if hasattr(quantity, "to_value"):
+        return quantity.to_value(unit)
+    return float(quantity)
+
+def normalize_site_key(site):
+    """Normalize supported site names and aliases to SITE_COORDS keys."""
+    key = str(site).strip().upper()
+    return SITE_ALIASES.get(key, key)
+
+def normalize_thetaiso_loc(loc):
+    """Return the (lat_rad, lon_rad, depth_km) tuple expected by ThetaIso."""
+    if isinstance(loc, EarthLocation):
+        return (
+            loc.lat.to_value(u.rad),
+            loc.lon.to_value(u.rad),
+            -loc.height.to_value(u.km),
+        )
+
+    if isinstance(loc, str):
+        return get_site_thetaiso_loc(loc)
+
+    if isinstance(loc, dict) and "loc" in loc:
+        loc = loc["loc"]
+
+    lat = _quantity_to_value(loc[0], u.rad)
+    lon = _quantity_to_value(loc[1], u.rad)
+    depth = _quantity_to_value(loc[2], u.km)
+    return (lat, lon, depth)
+
 def ThetaIso(loc,n):
     """
     returns Isodetection angle in radians
     """
+    loc = normalize_thetaiso_loc(loc)
     lat = loc[0]
     lon = loc[1]
     depth = loc[2]
@@ -165,23 +198,61 @@ def ThetaIso(loc,n):
     return angle
 
 #Here is where locations are defined. Feel free to add more using the same format
-brc=EarthLocation.of_address('San Carlos de Bariloche, Argentina')
-sg=EarthLocation.of_address('Sierra Grande, Argentina')
-fnal=EarthLocation.of_address('Fermilab, USA')
-sno=EarthLocation.of_address('Snolab, Canada')
-gssi=EarthLocation.of_address('Gran Sasso, Italy')
-modane=EarthLocation.of_address('Modane, France')
-soudan=EarthLocation.of_address('Soudan, USA')
-stawell  = EarthLocation.of_address('Stawell, Australia')
-capetown  = EarthLocation.of_address('Cape Town, Africa')
-# lat [rad], lon [rad], depth [km]
-sites = {'BRC': {'loc':[brc.lat.to_value('radian'), brc.lon.to_value('radian'), 0]}, \
-         'SG': {'loc':[sg.lat.to_value('radian'), sg.lon.to_value('radian'), 0.4]}, \
-            'FNAL': {'loc':[fnal.lat.to_value('radian'), fnal.lon.to_value('radian'), 0.105]}, \
-            'SNO': {'loc':[sno.lat.to_value('radian'), sno.lon.to_value('radian'), 2]},
-            'GS': {'loc':[gssi.lat.to_value('radian'), gssi.lon.to_value('radian'), 3.1]},
-            'SURF': {'loc':[soudan.lat.to_value('radian'), soudan.lon.to_value('radian'), 2.4]},
-            'SUPL': {'loc':[stawell.lat.to_value('radian'), stawell.lon.to_value('radian'), 2.5]},
-            'PAUL' : {'loc':[capetown.lat.to_value('radian'), capetown.lon.to_value('radian'), 2.1]}
+SITE_COORDS = {
+    # key: (lat_deg, lon_deg, height_m)
+    "BRC": (-41.14557, -71.30822, 0),
+    "SG": (-41.606, -65.355, 0),
+    "FNAL": (41.82583, -88.25433, 226),
+    "SNO": (46.4719, -81.201, 0),
+    "GSSI": (42.45267, 13.5715, 963),
+    "MODANE": (45.2, 6.69, 0),
+    "SOUDAN": (47.8208333, -92.2361111, 481),
+    "SUPL": (-36.060, 142.801, 0),
+    "CAPETOWN": (-33.9249, 18.4241, 0),
+}
 
-      }
+SITE_ALIASES = {
+    "SNOLAB": "SNO",
+    "SNO LAB": "SNO",
+    "SNOLAB, CANADA": "SNO",
+    "SNO": "SNO",
+    "BARILOCHE": "BRC",
+    "SAN CARLOS DE BARILOCHE, ARGENTINA": "BRC",
+    "FERMILAB": "FNAL",
+    "FERMILAB, USA": "FNAL",
+    "GRAN SASSO": "GSSI",
+    "GRAN SASSO, ITALY": "GSSI",
+    "GS": "GSSI",
+    "MODANE": "MODANE",
+    "MODANE, FRANCE": "MODANE",
+    "SOUDAN": "SOUDAN",
+    "SOUDAN, USA": "SOUDAN",
+    "SURF": "SOUDAN",
+    "STAWELL": "SUPL",
+    "STAWELL, AUSTRALIA": "SUPL",
+    "SUPL": "SUPL",
+    "CAPE TOWN": "CAPETOWN",
+    "CAPE TOWN, AFRICA": "CAPETOWN",
+    "PAUL": "CAPETOWN",
+}
+
+def get_site_thetaiso_loc(site):
+    """Return location tuple expected by ThetaIso: (lat_rad, lon_rad, depth_km)."""
+    lat_deg, lon_deg, height_m = SITE_COORDS[normalize_site_key(site)]
+    lat_rad = np.deg2rad(lat_deg)
+    lon_rad = np.deg2rad(lon_deg)
+    depth_km = -height_m / 1000.0
+    return (lat_rad, lon_rad, depth_km)
+
+def get_site_location(site):
+    lat, lon, height = SITE_COORDS[normalize_site_key(site)]
+    return EarthLocation.from_geodetic(
+        lon=lon * u.deg,
+        lat=lat * u.deg,
+        height=height * u.m,
+    )
+
+sites = {
+    key: {"loc": get_site_thetaiso_loc(key)}
+    for key in SITE_COORDS
+}

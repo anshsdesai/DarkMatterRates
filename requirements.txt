@@ -1,4 +1,5 @@
 asttokens==3.0.0
+astropy
 autoray==0.7.1
 colorama==0.4.6
 comm==0.2.2
@@ -45,6 +46,7 @@ python-dateutil==2.9.0.post0
 pywin32==310
 pyzmq==26.4.0
 scipy==1.15.2
+PyYAML>=6.0
 setuptools==75.8.0
 shutilwhich==1.1.0
 six==1.17.0

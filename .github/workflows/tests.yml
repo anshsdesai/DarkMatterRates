@@ -1,0 +1,55 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, qcdark2_integration]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      DMERATES_QCDARK2_ROOT: ${{ github.workspace }}/QCDark2
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive        # needed for torchinterp1d
+      - name: Checkout QCDark2 dielectric data
+        uses: actions/checkout@v4
+        with:
+          repository: meganhott/QCDark2
+          path: QCDark2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Validate QCDark2 dielectric tree
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+
+          root = Path(os.environ["DMERATES_QCDARK2_ROOT"])
+          variants = {"composite": "comp", "lfe": "lfe", "nolfe": "nolfe"}
+          materials = ["Si", "Ge", "GaAs", "SiC", "diamond"]
+          missing = []
+          for variant, suffix in variants.items():
+              for material in materials:
+                  path = root / "dielectric_functions" / variant / f"{material}_{suffix}.h5"
+                  if not path.is_file():
+                      missing.append(str(path))
+          if missing:
+              print("Missing required QCDark2 dielectric files:")
+              print("\n".join(missing))
+              raise SystemExit(1)
+          print(f"Validated QCDark2 dielectric tree at {root}")
+          PY
+      - name: Install dependencies
+        run: |
+          pip install -e ./torchinterp1d
+          pip install -e .
+          pip install pytest
+      - name: Run tests
+        run: pytest tests/ -v --tb=short

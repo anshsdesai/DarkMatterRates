@@ -5,6 +5,20 @@ import numericalunits as nu
 northcolor='#2E88D1'
 southcolor='#D1772E'
 
+def _create_dmrate(material, useQCDark=True):
+    """Create DMeRate with engine-compatible form-factor selection."""
+    import DMeRates
+    import DMeRates.DMeRate as DMeRate
+
+    noble_materials = {"XE", "AR"}
+    material_key = str(material).upper()
+    if material_key in noble_materials:
+        # Noble targets always use wimprates in the new architecture.
+        return DMeRate.DMeRate(material, form_factor_type='wimprates')
+
+    ff_type = 'qcdark' if useQCDark else 'qedark'
+    return DMeRate.DMeRate(material, form_factor_type=ff_type)
+
 def set_default_plotting_params(fontsize=40):
     """Set default matplotlib plotting parameters for consistent figure styling.
     
@@ -94,9 +108,7 @@ def get_modulated_rates(material,mX,sigmaE,fdm,ne,useVerne=True,calcError=None,u
     if dmRateObject is not None:
         dmrates = dmRateObject
     else:
-        import DMeRates
-        import DMeRates.DMeRate as DMeRate
-        dmrates = DMeRate.DMeRate(material,QEDark= not useQCDark)
+        dmrates = _create_dmrate(material, useQCDark=useQCDark)
 
     if useQCDark:
         integrate = True
@@ -184,9 +196,7 @@ def generate_modulated_rates(material,FDMn,useQCDark = True,useVerne=True,calcEr
     sys.path.append('..')
     from tqdm.autonotebook import tqdm
     import numericalunits as nu
-    import DMeRates
-    import DMeRates.DMeRate as DMeRate
-    dmrates = DMeRate.DMeRate(material,QEDark= not useQCDark)
+    dmrates = _create_dmrate(material, useQCDark=useQCDark)
 
 
 
@@ -300,9 +310,7 @@ def generate_damascus_rates_with_error(ne,material,FDMn,useQCDark = True,DoScree
     sys.path.append('..')
     from tqdm.autonotebook import tqdm
     import numericalunits as nu
-    import DMeRates
-    import DMeRates.DMeRate as DMeRate
-    dmrates = DMeRate.DMeRate(material,QEDark= not useQCDark)
+    dmrates = _create_dmrate(material, useQCDark=useQCDark)
 
 
 
@@ -882,48 +890,66 @@ def get_damascus_output(mX,sigmaE,FDMn):
         data.append([file_vmin,file_eta])
     return data
 
-
-def get_angle_limits(loc,date=[8,8,2024]):
+def get_angle_limits(loc, date=None):
     """Calculate min/max isotropy angles for a location on given date.
-    
+
     Args:
         loc: Location name ('SNOLAB', 'Bariloche', etc.)
-        date: [day, month, year] (default [8,8,2024])
-        
+        date: [day, month, year] (default [8, 8, 2024])
+
     Returns:
         tuple: (min_angle, max_angle) in degrees
     """
-    
+
     import numpy as np
     from scipy.interpolate import CubicSpline
-    # try:
-    from isoangle import ThetaIso,sites,FracDays
-    if loc == 'SNOLAB':
-        loc_key = 'SNO'
-    elif loc == 'Bariloche':
-        loc_key = 'BRC'
-    elif loc == 'Fermilab':
-        loc_key = 'FNAL'
+    from isoangle import (
+        ThetaIso,
+        FracDays,
+        SITE_ALIASES,
+        SITE_COORDS,
+        normalize_site_key,
+        normalize_thetaiso_loc,
+    )
+
+    if date is None:
+        date = [8, 8, 2024]
+
+    if isinstance(loc, str):
+        loc_key = normalize_site_key(loc)
+        if loc_key not in SITE_COORDS:
+            valid_aliases = sorted(SITE_ALIASES.keys())
+            valid_keys = sorted(SITE_COORDS.keys())
+            raise ValueError(
+                f"Unknown location '{loc}'. "
+                f"Valid aliases: {valid_aliases}. "
+                f"Valid site keys: {valid_keys}."
+            )
+        site = normalize_thetaiso_loc(loc_key)
     else:
-        loc_key = loc
+        site = normalize_thetaiso_loc(loc)
 
-    nlist1 = [FracDays(np.array(date),np.array([h,0,0])) for h in range(24)]
-    y = [np.rad2deg(ThetaIso(sites[loc_key]['loc'],n)) for n in nlist1]
+    # Include h=24 so the spline is not extrapolating at the upper endpoint.
+    hours = np.arange(25)
 
-    x = [h for h in range(24)]
+    nlist = [
+        FracDays(np.array(date), np.array([h, 0, 0]))
+        for h in hours
+    ]
 
-    xnew = np.linspace(0,24,num=1000)
-    spl = CubicSpline(x,y)
+    y = np.array([
+        np.rad2deg(ThetaIso(site, n))
+        for n in nlist
+    ])
+
+    xnew = np.linspace(0, 24, num=1000)
+    spl = CubicSpline(hours, y)
     ynew = spl(xnew)
+
     min_angle = np.min(ynew)
     max_angle = np.max(ynew)
-    # except:
-    #     #no internet
-    #     print("no internet access or this site is not defined, just returning snolabish")
-    #     min_angle = 6
-    #     max_angle = 89
-    return min_angle,max_angle
 
+    return min_angle, max_angle
 
 def get_amplitude(mX,sigmaE,FDMn,material,min_angle,max_angle,ne=1,fractional=False,useVerne=False,verbose=False,fromFile=False,returnaverage=False,useQCDark=True,fit=None,summer=False):
     """Calculate modulation amplitude between min/max angles.
@@ -3172,9 +3198,13 @@ def plotLocationExposure(address1,address2,savefig=True):
     import pandas as pd
     import matplotlib.pyplot as plt
     import glob
-    from astropy.coordinates import EarthLocation, SkyCoord,AltAz
+    from astropy.coordinates import SkyCoord,AltAz
     from astropy.time import Time
     import astropy.units as u
+    from astropy.utils import iers
+    from isoangle import get_site_location
+    iers.conf.auto_download = False
+    iers.conf.auto_max_age = None
     # plotting specifications
     import matplotlib.pyplot as plt
 
@@ -3195,8 +3225,40 @@ def plotLocationExposure(address1,address2,savefig=True):
 
     wind=SkyCoord(l=90*u.deg,b=0*u.deg,frame="galactic")
 
-    loc1=EarthLocation.of_address(address1)
-    loc2=EarthLocation.of_address(address2)
+    loc_aliases = {
+        "SNOLAB": "SNO",
+        "SNO": "SNO",
+        "SNOlab, Canada".upper(): "SNO",
+        "SUPL": "SUPL",
+        "STAWELL": "SUPL",
+        "STAWELL, AUSTRALIA": "SUPL",
+        "BARILOCHE": "BRC",
+        "SAN CARLOS DE BARILOCHE, ARGENTINA": "BRC",
+        "FERMILAB": "FNAL",
+        "FERMILAB, USA": "FNAL",
+        "GRAN SASSO": "GSSI",
+        "MODANE": "MODANE",
+        "SOUDAN": "SOUDAN",
+        "CAPE TOWN": "CAPETOWN",
+    }
+
+    def _resolve_site_key(name):
+        key = name.strip().upper()
+        resolved = loc_aliases.get(key, key)
+        try:
+            get_site_location(resolved)
+        except KeyError as exc:
+            raise ValueError(
+                f"Unknown location '{name}'. "
+                f"Supported names include SNOLAB/SNO, SUPL/Stawell, "
+                "Bariloche, Fermilab, Gran Sasso, Modane, Soudan, Cape Town."
+            ) from exc
+        return resolved
+
+    site_key1 = _resolve_site_key(address1)
+    site_key2 = _resolve_site_key(address2)
+    loc1 = get_site_location(site_key1)
+    loc2 = get_site_location(site_key2)
 
     wimploc1 = wind.transform_to(AltAz(obstime=t,location=loc1))
     wimploc2 = wind.transform_to(AltAz(obstime=t,location=loc2))
@@ -3235,7 +3297,9 @@ def plotLocationExposure(address1,address2,savefig=True):
    
     if savefig:
         plt.savefig(f'figures/Misc/IsoLoc.pdf')
-    plt.show()
+    if "agg" not in plt.get_backend().lower():
+        plt.show(block=False)
+        plt.pause(0.001)
     plt.close()
 
 
@@ -3289,7 +3353,6 @@ def find_sigma_cross_section(material,FDMn,test_mX,test_exposure,background,ne=1
     import os
     import re
     import numericalunits as nu
-    from Modulation import get_amplitude,get_angle_limits
 
 
     import numpy as np

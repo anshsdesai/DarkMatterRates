@@ -8,6 +8,7 @@ __pycache__
 .vscode
 
 halo_data/modulated
+halo_data/modulated_legacy
 halo_independent
 modulation_study/fitted_damascus_modulated_rates*
 modulation_study/damascus_modulated_rates*

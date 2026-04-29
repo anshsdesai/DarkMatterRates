@@ -4,3 +4,5 @@
 # from .DM_Halo import DM_Halo_Distributions
 # from .form_factor import form_factor,form_factorQEDark
 # from .DMeRate import DMeRate
+
+__version__ = "0.1.0"

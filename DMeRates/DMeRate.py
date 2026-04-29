@@ -1,12 +1,26 @@
 from .Constants import *
 from .DM_Halo import DM_Halo_Distributions
+from .engines.dielectric import compute_dRdE as compute_qcdark2_dRdE
 from .form_factor import form_factor,form_factorQEDark,formFactorNoble
+from .halo.analytic import AnalyticHaloProvider
+from .halo.file_loader import FileHaloProvider, load_halo_file_data
+from .halo.independent import HaloIndependentProvider
+from .data.registry import DataRegistry
+from .ionization.rk_probabilities import rk_probabilities
+from .responses.dielectric import dielectric_response
+from .responses.dielectric_materials import (
+    QCDARK2_BANDGAPS,
+    canonical_qcdark2_material,
+    require_qcdark2_pair_energy,
+)
+from .ionization.step_function import step_probabilities
+from .screening.thomas_fermi import thomas_fermi_screening, tfscreening
 import numericalunits as nu
 
 
 
 
-_SEMICONDUCTOR_MATERIALS = ('Si', 'Ge', 'GaAs', 'SiC', 'Diamond')
+_SEMICONDUCTOR_MATERIALS = ('Si', 'Ge', 'GaAs', 'SiC', 'Diamond', 'diamond')
 _NOBLE_MATERIALS = ('Xe', 'Ar')
 
 
@@ -26,7 +40,7 @@ class DMeRate:
         QEDark (bool): Use QEDark form factors (default False)
         device (str, optional): Computation device ('cpu', 'cuda', etc.)
     """
-    def __init__(self,material,form_factor_type=False,device=None):
+    def __init__(self,material,form_factor_type=None,device=None):
         """Initialize rate calculator with material properties and computation settings."""
 
         import torch
@@ -35,6 +49,9 @@ class DMeRate:
         #To assign a unit to a quantity, multiply by the unit, e.g. my_length = 100 * mm. (In normal text you would write “100 mm”, but unfortunately Python does not have “implied multiplication”.)
         #To express a dimensionful quantity in a certain unit, divide by that unit, e.g. when you see my_length / cm, you pronounce it “my_length expressed in cm”.
         #Form factor object has units already applied 
+
+        if form_factor_type is not None and str(form_factor_type).lower() == 'qcdark2':
+            material = canonical_qcdark2_material(material)
 
         if material in _NOBLE_MATERIALS:
             if form_factor_type not in (None, 'wimprates'):
@@ -85,23 +102,63 @@ class DMeRate:
         torch.set_default_dtype(self.default_dtype)
         self.DM_Halo = DM_Halo_Distributions(self.v0,self.vEarth,self.vEscape,self.rhoX,self.cross_section)
 
-        if material == 'Si' or material == 'Ge':
+        if self.form_factor_type == 'qcdark2':
+            if material not in _SEMICONDUCTOR_MATERIALS:
+                raise ValueError(
+                    f"QCDark2 backend is only supported for semiconductor targets: "
+                    f"{sorted(QCDARK2_BANDGAPS.keys())}"
+                )
+
+            material = canonical_qcdark2_material(material)
+            self.material = material
+            self.qcdark2_variant = 'composite'
+            self.form_factor = dielectric_response(material, variant=self.qcdark2_variant)
+            # Keep legacy field names where practical.
+            self.form_factor.band_gap = QCDARK2_BANDGAPS[material]
+            self.Earr = torch.as_tensor(self.form_factor.E, dtype=torch.get_default_dtype())
+            self.nE = len(self.Earr)
+            self.nQ = len(self.form_factor.q_ame)
+            self.qArr = torch.as_tensor(self.form_factor.q, dtype=torch.get_default_dtype())
+            self.qiArr = torch.arange(self.nQ)
+            self.Ei_array = torch.floor(torch.round((self.Earr/nu.eV)*10)).int()
+
+            # QCDark2 ne-policy:
+            # - Si may use RK (default).
+            # - Ge uses legacy step approximation by default.
+            # - GaAs/SiC/Diamond require explicit pair_energy at call time.
+            if self.material == 'Si':
+                self.bin_size = Sigapsize
+                self.ionization_func = self.RKProbabilities
+            elif self.material == 'Ge':
+                self.bin_size = Gegapsize
+                self.ionization_func = self.step_probabilities
+            else:
+                self.bin_size = None
+                self.ionization_func = None
+
+            if self.ionization_func is not None:
+                prob_fn_tiled = []
+                for ne in torch.arange(1,21):
+                    temp = self.ionization_func(ne)
+                    temp = torch.where(torch.isnan(temp),0,temp)
+                    prob_fn_tiled.append(temp)
+                self.probabilities = torch.stack(prob_fn_tiled)
+            else:
+                self.probabilities = None
+
+        elif material == 'Si' or material == 'Ge':
             binsizes = {
                 'Si': Sigapsize,
                 'Ge': Gegapsize
             }
  
-            if self.QEDark:
-                form_factor_file = f'../form_factors/QEDark/{material}_f2.txt'
-            else:
-                form_factor_file = f'../form_factors/QCDark/{material}_final.hdf5'
-            self.bin_size = binsizes[material] 
+            self.bin_size = binsizes[material]
 
-        
-            form_factor_file_filepath = os.path.join(self.module_dir,form_factor_file)
             if self.QEDark:
+                form_factor_file_filepath = str(DataRegistry.qedark_ff(material))
                 ffactor = form_factorQEDark(form_factor_file_filepath)
             else:
+                form_factor_file_filepath = str(DataRegistry.qcdark1_ff(material))
                 ffactor = form_factor(form_factor_file_filepath)
 
             self.ionization_func = self.RKProbabilities
@@ -162,9 +219,7 @@ class DMeRate:
 
             logkArr  = np.log(Earr / ry) / 2
             self.Earr = torch.tensor(Earr)
-            form_factor_file = f'../form_factors/wimprates/{material}_dme_ionization_ff.pkl'        
-            form_factor_file_filepath = os.path.join(self.module_dir,form_factor_file)
-        
+            form_factor_file_filepath = str(DataRegistry.noble_ff(material))
             formfactor = formFactorNoble(form_factor_file_filepath)
             self.form_factor = formfactor
 
@@ -226,20 +281,13 @@ class DMeRate:
         Returns:
             probabilities for being in certain bin
         """
-        import torch
-        i = ne - 1
-        dE, E_gap = self.form_factor.dE, self.form_factor.band_gap
-        dE /=nu.eV
-        E_gap /=nu.eV
-        E2Q = self.bin_size / nu.eV
-
-        initE, binE = int((E_gap)/(dE)), int(round(E2Q/dE))
-        # bounds = (i*binE + initE,(i+1)*binE + initE)
-        # if self.QEDark:
-        bounds = (i*binE + initE + 1,(i+1)*binE + initE + 1)
-        probabilities = torch.zeros_like(self.Earr)
-        probabilities[bounds[0]:bounds[1]] = 1
-        return probabilities
+        return step_probabilities(
+            ne=ne,
+            energy_array=self.Earr,
+            dE=self.form_factor.dE,
+            band_gap=self.form_factor.band_gap,
+            bin_size=self.bin_size,
+        )
 
     def RKProbabilities(self,ne): #using values at 100k
         """Interpolated probabilities from Ramanathan Kurinsky data for electron-hole pair creation.
@@ -250,22 +298,16 @@ class DMeRate:
         Returns:
             Array of probabilities for each energy bin
         """
-        from numpy import loadtxt
-        import torch
-        from torchinterp1d.interp1d import Interp1d
         import os
-        filepath = os.path.join(self.module_dir,'p100k.dat')
-        p100data = loadtxt(filepath)
-        pEV = torch.tensor(p100data[:,0],dtype=torch.get_default_dtype()) *nu.eV
+        import torch
 
-        file_probabilities = torch.tensor(p100data.T,dtype=torch.get_default_dtype())#[:,:]
-        file_probabilities = file_probabilities[ne]
-
-        probabilities = Interp1d.apply(pEV, file_probabilities, self.Earr).flatten()# kind = 'linear',bounds_error=False,fill_value=0)
-        # probabilities = p100_func(self.Earr)
-        # probabilities = torch.from_numpy(probabilities)
-        # probabilities = probabilities.to(self.device)
-        return probabilities
+        filepath = os.path.join(self.module_dir, "p100k.dat")
+        return rk_probabilities(
+            ne=ne,
+            energy_array=self.Earr,
+            p100k_path=filepath,
+            dtype=torch.get_default_dtype(),
+        )
 
     def update_crosssection(self,crosssection):
         """Update DM-electron cross section.
@@ -349,27 +391,12 @@ class DMeRate:
         Returns:
             Screening factor array
         """
-        import torch
-        tfdict = tf_screening[self.material]
-        eps0,qTF,omegaP,alphaS = tfdict['eps0'],tfdict['qTF'],tfdict['omegaP'],tfdict['alphaS']
-        Earr = self.Earr / nu.eV
-        qArr = self.qArr / (nu.eV / nu.c0)
-        omegaP_ = omegaP/nu.eV
-        qTF_ = qTF/nu.eV
-        
-        mElectron_eV = me_eV/nu.eV
-
-        q_arr_tiled = torch.tile(qArr,(len(Earr),1))
-        if DoScreen:
-            E_array_tiled= torch.tile(Earr,(len(qArr),1)).T
-            result = alphaS*((q_arr_tiled/qTF_)**2)
-            result += 1.0/(eps0 - 1)
-            result += q_arr_tiled**4/(4.*(mElectron_eV**2)*(omegaP_**2))
-            result -= (E_array_tiled/omegaP_)**2
-            result = 1. / (1. + 1. / result)
-        else:
-            result = torch.ones_like(q_arr_tiled)
-        return result
+        return tfscreening(
+            material=self.material,
+            Earr=self.Earr,
+            qArr=self.qArr,
+            do_screen=DoScreen,
+        )
     
     def thomas_fermi_screening(self,q,E,doScreen=True):
         """Vectorized Thomas-Fermi screening calculation.
@@ -382,44 +409,12 @@ class DMeRate:
         Returns:
             Screening factor tensor
         """
-        #param q, tensor with shape 1250
-        #param E, tensor with shape 500
-        tfdict = tf_screening[self.material]
-        eps0,qTF,omegaP,alphaS = tfdict['eps0'],tfdict['qTF'],tfdict['omegaP'],tfdict['alphaS']
-        E_eV = E / nu.eV
-        q_eV = q/ (nu.eV / nu.c0)
-        E_eV = E_eV.unsqueeze(0)
-        q_eV = q_eV.unsqueeze(1)
-
-
-        omegaP_ = omegaP/nu.eV
-        qTF_ = qTF/nu.eV
-        
-        mElectron_eV = me_eV/nu.eV
-        if doScreen:
-
-            term1 = alphaS * (q_eV / qTF_)**2  # [1249,1] * [1,1] → [1249,1]
-            term2 = 1.0 / (eps0 - 1)           # Scalar → [1,1]
-            term3 = q_eV**4 / (4. * (mElectron_eV**2) * (omegaP_**2))  # [1249,1]
-            term4 = (E_eV / omegaP_)**2        # [1,500] → [1,500]
-            
-            # Explicitly broadcast all terms to [1249,500]
-            result = term1.expand(-1, E_eV.shape[1]) + term2
-            result += term3.expand(-1, E_eV.shape[1])
-            result -= term4.expand(q_eV.shape[0], -1)
-            
-            result = 1. / (1. + 1. / result)
-
-
-
-            # result = alphaS*((q_eV/qTF_)**2)
-            # result += 1.0/(eps0 - 1)
-            # result += q_eV**4/(4.*(mElectron_eV**2)*(omegaP_**2))
-            # result -= (E_eV/omegaP_)**2
-            # result = 1. / (1. + 1. / result)
-        else:
-            result = 1.
-        return result
+        return thomas_fermi_screening(
+            material=self.material,
+            q=q,
+            E=E,
+            do_screen=doScreen,
+        )
     
     
 
@@ -434,110 +429,27 @@ class DMeRate:
             useVerne: Use Verne distribution
             calcErrors: Calculate errors ('High'/'Low') (only works for DaMaSCUS data)
         """
-        import os
         import torch
         torch.set_default_device(self.device)
         torch.set_default_dtype(self.default_dtype)
         if halo_model == 'imb' or halo_model == 'step':
             return
-        if isoangle is None:
-            lightSpeed_kmpers = nu.s / nu.km #inverse to output it in units i want
-
-            geVconversion = 1 / (nu.GeV / nu.c0**2/ nu.cm**3)
-            halo_prefix = '../halo_data/'
-
-            halo_dir_prefix = os.path.join(self.module_dir,halo_prefix) 
-            file = halo_dir_prefix + f'{halo_model}_v0{round(self.v0*lightSpeed_kmpers,1)}_vE{round(self.vEarth*lightSpeed_kmpers,1)}_vEsc{round(self.vEscape*lightSpeed_kmpers,1)}_rhoX{round(self.rhoX*geVconversion,1)}.txt'
-            try:
-
-                temp =open(file,'r')
-                temp.close()
-            except FileNotFoundError:
-                self.DM_Halo.generate_halo_files(halo_model)
-            # print(f'found halo file: {file}')
-            from numpy import loadtxt
-            try:
-                data = loadtxt(file,delimiter='\t')
-            except ValueError:
-                try:
-                    self.DM_Halo.generate_halo_files(halo_model)
-                except:
-                    raise ValueError("Unknown halo type")
-                data = loadtxt(file,delimiter='\t')
-                
-            if len(data) == 0:
-                raise ValueError('file is empty!')
-            
-            #default file units
-            file_etas = torch.tensor(data[:,1],dtype=torch.get_default_dtype()) * nu.s / nu.km
-            file_vmins = torch.tensor(data[:,0],dtype=torch.get_default_dtype()) * nu.km / nu.s
-
-            #clearly this was hardcoded to catch something but don't remember what
-            if file_etas[-1] == file_etas[-2]:
-                file_etas = file_etas[:-1]
-                file_vmins = file_vmins[:-1]
-        else:
-            import re
-            import os
-
-            # mass_string = mX / (nu.MeV / nu.c0**2) #turn into MeV
-            mass_string = float(mX)
-            from numpy import round as npround
-            mass_string = npround(mass_string,3)
-
-            mass_string = str(mass_string)
-            mass_string = mass_string.replace('.',"_")
-            sigmaE = float(format(self.cross_section / nu.cm**2, '.3g'))
-            sigmaE_str = str(sigmaE)
-            # sigmaE_str.replace('.',"_")
-            fdm_str = 'FDM1' if FDMn ==0 else 'FDMq2'
-            summer_str ='_summer' if halo_model == 'summer' else '' #only works for Verne
-       
-            halo_prefix = f'../halo_data/modulated/{fdm_str}/'
-
-            halo_dir_prefix = os.path.join(self.module_dir,halo_prefix) 
-            if useVerne:
-                dir = halo_dir_prefix + f'Verne{summer_str}/'
-            
-            else:
-                dir = halo_dir_prefix + f'DaMaSCUS/'
-            
-            # if 'summer' in halo_model or 'winter' in halo_model: 
-            #     file = f'{dir}DM_Eta_theta_{isoangle}.txt'
-                
-            # else:
-            file = f'{dir}mDM_{mass_string}_MeV_sigmaE_{sigmaE_str}_cm2/DM_Eta_theta_{isoangle}.txt'
-            
-            # print(f"Using Halo Data from: {file}")
-            if not os.path.isfile(file):
-                print(file)
-                raise FileNotFoundError('sigmaE file not found')
-            
-            from numpy import loadtxt
-            try:
-                data = loadtxt(file,delimiter='\t')
-            except ValueError:
-                print(file)
-                raise ValueError(f'file not found! tried {file}')
-            if len(data) == 0:
-                raise ValueError('file is empty!')
-            
-            file_etas = torch.tensor(data[:,1],dtype=self.default_dtype) * nu.s / nu.km
-            file_vmins = torch.tensor(data[:,0],dtype=self.default_dtype)* nu.km / nu.s
-            if isoangle is not None:
-                if calcErrors is not None:
-                    file_eta_err = torch.tensor(data[:,2]) * nu.s / nu.km
-                    if calcErrors == 'High':
-                        file_etas += file_eta_err
-                    if calcErrors == 'Low':
-                        file_etas -= file_eta_err
-
-
-            #this was hardcoded to catch duplicates at end of verne file randomly
-            if file_etas[-1] == file_etas[-2]:
-                file_etas = file_etas[:-1]
-                file_vmins = file_vmins[:-1]
-
+        file_vmins, file_etas = load_halo_file_data(
+            module_dir=self.module_dir,
+            dm_halo=self.DM_Halo,
+            halo_model=halo_model,
+            v0=self.v0,
+            vEarth=self.vEarth,
+            vEscape=self.vEscape,
+            rhoX=self.rhoX,
+            cross_section=self.cross_section,
+            mX=mX,
+            FDMn=FDMn,
+            isoangle=isoangle,
+            useVerne=useVerne,
+            calcErrors=calcErrors,
+            default_dtype=self.default_dtype,
+        )
         self.file_etas = file_etas
         self.file_vmins = file_vmins
         return
@@ -554,33 +466,17 @@ class DMeRate:
         Returns:
             Integrated velocity distribution values
         """
-        import torch
-        import os
-        import re
         #Etas are very sensitive to numerical deviations, so leaving these units in units of c
-        
-
-
         if halo_id_params is not None: #doing halo idp analysis
-            etas = self.DM_Halo.step_function_eta(vMins, halo_id_params) 
+            provider = HaloIndependentProvider(self.DM_Halo, halo_id_params)
+            return provider.eta(vMins)
 
+        if halo_model == 'imb':
+            provider = AnalyticHaloProvider(self.DM_Halo, "imb")
+            return provider.eta(vMins)
 
-        elif halo_model == 'imb':
-            # vMins = self.DM_Halo.vmin_tensor(self.Earr,qArr,mX) #in velocity units
-            etas = self.DM_Halo.eta_MB_tensor(vMins) 
-
-        
-        else: #from file
-            from torchinterp1d.interp1d import Interp1d
-            import torch
-            file_vmins = self.file_vmins
-            file_etas = self.file_etas
-
-            etas = Interp1d.apply(file_vmins, file_etas, vMins) # inverse velocity
-            #make sure to avoid interpolation issues where there isn't data
-            etas = torch.where((vMins<file_vmins[0]) | (vMins > file_vmins[-1]) | (torch.isnan(etas)) ,0,etas)
-            
-        return etas  #inverse velocity units
+        provider = FileHaloProvider(self.file_vmins, self.file_etas)
+        return provider.eta(vMins)  #inverse velocity units
 
     
     
@@ -771,8 +667,259 @@ class DMeRate:
             return returndict
 
         return band_gap_result  #result is in R / kg /year / eV
+
+    def _qcdark2_pair_energy_to_nu(self, pair_energy):
+        """Normalize pair energy input to numericalunits eV."""
+        if pair_energy is None:
+            return None
+        try:
+            # Accept both plain eV scalars and already-unitized values.
+            value_eV = float(pair_energy / nu.eV)
+            return value_eV * nu.eV
+        except Exception:
+            return float(pair_energy) * nu.eV
+
+    def _qcdark2_probabilities(self, nes, pair_energy=None):
+        """Construct ne probability rows for the QCDark2 energy grid."""
+        import os
+        import torch
+
+        material = canonical_qcdark2_material(self.material)
+        pair_energy_nu = self._qcdark2_pair_energy_to_nu(pair_energy)
+
+        if material == 'Si':
+            p100_path = os.path.join(self.module_dir, "p100k.dat")
+            rows = []
+            for ne in nes:
+                probs = rk_probabilities(
+                    ne=int(ne),
+                    energy_array=self.Earr,
+                    p100k_path=p100_path,
+                    dtype=torch.get_default_dtype(),
+                )
+                rows.append(torch.where(torch.isnan(probs), 0, probs))
+            return torch.stack(rows)
+
+        if material == 'Ge':
+            if pair_energy_nu is None:
+                pair_energy_nu = Gegapsize
+            rows = [
+                step_probabilities(
+                    ne=int(ne),
+                    energy_array=self.Earr,
+                    dE=self.form_factor.dE,
+                    band_gap=QCDARK2_BANDGAPS[material],
+                    bin_size=pair_energy_nu,
+                )
+                for ne in nes
+            ]
+            return torch.stack(rows)
+
+        require_qcdark2_pair_energy(material, pair_energy_nu)
+        rows = [
+            step_probabilities(
+                ne=int(ne),
+                energy_array=self.Earr,
+                dE=self.form_factor.dE,
+                band_gap=QCDARK2_BANDGAPS[material],
+                bin_size=pair_energy_nu,
+            )
+            for ne in nes
+        ]
+        return torch.stack(rows)
+
+    def _qcdark2_dielectric_for_variant(self, variant):
+        """Return a cached QCDark2 dielectric response for the requested variant."""
+        import torch
+
+        if getattr(self, "qcdark2_variant", None) != variant:
+            self.form_factor = dielectric_response(self.material, variant=variant)
+            self.qcdark2_variant = variant
+            self.form_factor.band_gap = QCDARK2_BANDGAPS[self.material]
+            self.Earr = torch.as_tensor(
+                self.form_factor.E,
+                dtype=torch.get_default_dtype(),
+            )
+            self.nE = len(self.Earr)
+            self.nQ = len(self.form_factor.q_ame)
+            self.qArr = torch.as_tensor(
+                self.form_factor.q,
+                dtype=torch.get_default_dtype(),
+            )
+            self.qiArr = torch.arange(self.nQ)
+            self.Ei_array = torch.floor(torch.round((self.Earr / nu.eV) * 10)).int()
+        return self.form_factor
+
+    def calculate_qcdark2_rates(
+        self,
+        mX_array,
+        halo_model,
+        FDMn,
+        ne,
+        screening=None,
+        variant=None,
+        pair_energy=None,
+        isoangle=None,
+        halo_id_params=None,
+        useVerne=False,
+        calcErrors=None,
+        debug=False,
+    ):
+        """Calculate QCDark2 ne rates by integrating the native dielectric dR/dE."""
+        import numpy
+        import torch
+
+        if screening is None:
+            raise ValueError(
+                "QCDark2 calculations require an explicit screening choice. "
+                "Pass screening='rpa' or screening='none'."
+            )
+        if variant is None:
+            variant = getattr(self, 'qcdark2_variant', 'composite')
+
+        if type(ne) != torch.Tensor:
+            if type(ne) == int:
+                nes = torch.tensor([ne])
+            elif type(ne) == list:
+                nes = torch.tensor(ne)
+            elif type(ne) == numpy.ndarray:
+                nes = torch.from_numpy(ne).to(self.device)
+            else:
+                nes = torch.tensor(ne)
+        else:
+            nes = ne
+
+        if type(mX_array) != torch.Tensor:
+            if type(mX_array) == int or type(mX_array) == float:
+                mX_array = torch.tensor([mX_array])
+            elif type(mX_array) == list:
+                mX_array = torch.tensor(mX_array)
+            elif type(mX_array) == numpy.ndarray:
+                mX_array = torch.from_numpy(mX_array).to(self.device)
+            else:
+                mX_array = torch.tensor([mX_array])
+
+        rhoX_eV_per_cm3 = float(self.rhoX * nu.c0**2 / (nu.eV / nu.cm**3))
+        sigma_e_cm2 = float(self.cross_section / nu.cm**2)
+        dielectric = self._qcdark2_dielectric_for_variant(variant)
+        prob_fn_tiled = self._qcdark2_probabilities(nes, pair_energy=pair_energy)
+        dRdnEs = torch.zeros((len(mX_array), len(nes)))
+
+        for m, mX in enumerate(mX_array):
+            eta_provider = None
+            if halo_id_params is not None:
+                eta_provider = lambda vmins, params=halo_id_params: self.get_halo_data(
+                    vmins, halo_model, halo_id_params=params
+                )
+            elif halo_model not in {"imb", "srdm"}:
+                self.setup_halo_data(
+                    mX,
+                    FDMn,
+                    halo_model,
+                    isoangle=isoangle,
+                    useVerne=useVerne,
+                    calcErrors=calcErrors,
+                )
+                eta_provider = lambda vmins: self.get_halo_data(vmins, halo_model)
+
+            result = compute_qcdark2_dRdE(
+                material=self.material,
+                mX_eV=float(mX) * 1e6,  # input mX is MeV in legacy API
+                FDMn=FDMn,
+                halo_model=halo_model,
+                screening=screening,
+                variant=variant,
+                sigma_e_cm2=sigma_e_cm2,
+                rhoX_eV_per_cm3=rhoX_eV_per_cm3,
+                halo_distribution=self.DM_Halo,
+                eta_provider=eta_provider,
+                dielectric=dielectric,
+            )
+            spectrum = result.spectrum
+            self.Earr = spectrum.E
+            self.form_factor.dE = float(torch.diff(self.Earr).mean() / nu.eV) * nu.eV
+
+            dRdne = torch.trapezoid(spectrum.dR_dE * prob_fn_tiled, x=spectrum.E, axis=1)
+            dRdnEs[m, :] = dRdne
+
+        if debug:
+            return dRdnEs.T
+        return dRdnEs.T
+
+    def calculate_qcdark2_spectrum(
+        self,
+        mX,
+        halo_model,
+        FDMn,
+        screening=None,
+        variant=None,
+        isoangle=None,
+        halo_id_params=None,
+        useVerne=False,
+        calcErrors=None,
+    ):
+        """Return native QCDark2 dR/dE spectrum for a single mass point."""
+        if screening is None:
+            raise ValueError(
+                "QCDark2 calculations require an explicit screening choice. "
+                "Pass screening='rpa' or screening='none'."
+            )
+        if variant is None:
+            variant = getattr(self, 'qcdark2_variant', 'composite')
+        rhoX_eV_per_cm3 = float(self.rhoX * nu.c0**2 / (nu.eV / nu.cm**3))
+        sigma_e_cm2 = float(self.cross_section / nu.cm**2)
+        dielectric = self._qcdark2_dielectric_for_variant(variant)
+        eta_provider = None
+        if halo_id_params is not None:
+            eta_provider = lambda vmins, params=halo_id_params: self.get_halo_data(
+                vmins, halo_model, halo_id_params=params
+            )
+        elif halo_model not in {"imb", "srdm"}:
+            self.setup_halo_data(
+                mX,
+                FDMn,
+                halo_model,
+                isoangle=isoangle,
+                useVerne=useVerne,
+                calcErrors=calcErrors,
+            )
+            eta_provider = lambda vmins: self.get_halo_data(vmins, halo_model)
+
+        return compute_qcdark2_dRdE(
+            material=self.material,
+            mX_eV=float(mX) * 1e6,
+            FDMn=FDMn,
+            halo_model=halo_model,
+            screening=screening,
+            variant=variant,
+            sigma_e_cm2=sigma_e_cm2,
+            rhoX_eV_per_cm3=rhoX_eV_per_cm3,
+            halo_distribution=self.DM_Halo,
+            eta_provider=eta_provider,
+            dielectric=dielectric,
+        ).spectrum
+
+    def qcdark2_above_threshold_rate(self, mX, halo_model, FDMn, screening=None, variant=None, threshold_eV=None):
+        """Integrate the QCDark2 dR/dE spectrum above an energy threshold."""
+        import torch
+
+        spectrum = self.calculate_qcdark2_spectrum(
+            mX=mX,
+            halo_model=halo_model,
+            FDMn=FDMn,
+            screening=screening,
+            variant=variant,
+        )
+        if threshold_eV is None:
+            threshold = QCDARK2_BANDGAPS[canonical_qcdark2_material(self.material)]
+        else:
+            threshold = self._qcdark2_pair_energy_to_nu(threshold_eV)
+        mask = spectrum.E >= threshold
+        if not torch.any(mask):
+            return 0.0 * (1 / (nu.kg * nu.year))
+        return torch.trapezoid(spectrum.dR_dE[mask], x=spectrum.E[mask], axis=0)
     
-    def calculate_semiconductor_rates(self,mX_array,halo_model,FDMn,ne,integrate=True,DoScreen=True,isoangle=None,halo_id_params=None,useVerne=False,calcErrors=None,debug=False):
+    def calculate_semiconductor_rates(self,mX_array,halo_model,FDMn,ne,integrate=True,DoScreen=True,isoangle=None,halo_id_params=None,useVerne=False,calcErrors=None,debug=False,screening=None,variant=None,pair_energy=None):
         """Calculate rates for semiconductor crystals (Si, Ge).
         
         Args:
@@ -793,6 +940,21 @@ class DMeRate:
         """
         import torch
         import numpy
+        if self.form_factor_type == 'qcdark2':
+            return self.calculate_qcdark2_rates(
+                mX_array=mX_array,
+                halo_model=halo_model,
+                FDMn=FDMn,
+                ne=ne,
+                screening=screening,
+                variant=variant,
+                pair_energy=pair_energy,
+                isoangle=isoangle,
+                halo_id_params=halo_id_params,
+                useVerne=useVerne,
+                calcErrors=calcErrors,
+                debug=debug,
+            )
         if self.material == 'Ge':
             if self.ionization_func is not self.step_probabilities:
                 self.change_to_step()
@@ -847,10 +1009,10 @@ class DMeRate:
                 #maybe change this to simpsons rule too
                 dRdne = torch.trapezoid(dRdE*prob_fn_tiled,x=self.Earr, axis = 1)
             else:
-                # if self.QEDark:
-                # dRdne = torch.sum(dRdE*prob_fn_tiled, axis = 1) * (1*nu.eV)
-                # else:
-                dRdne = torch.sum(dRdE*prob_fn_tiled*self.form_factor.dE*10, axis = 1) #still not sure why I need a factor of 10 here to match
+                # Legacy QEDark summed these grid values directly; since the
+                # semiconductor form-factor grids use dE=0.1 eV, dE*10 supplies
+                # the missing energy unit as 1 eV without changing that convention.
+                dRdne = torch.sum(dRdE*prob_fn_tiled*self.form_factor.dE*10, axis = 1)
 
             dRdnEs[m,:] = dRdne
         if debug:
@@ -1246,7 +1408,7 @@ class DMeRate:
 
 
 
-    def calculate_rates(self,mX_array,halo_model,FDMn,ne,integrate=True,DoScreen=True,isoangle=None,halo_id_params=None,useVerne=False,calcErrors=None,debug=False):
+    def calculate_rates(self,mX_array,halo_model,FDMn,ne,integrate=True,DoScreen=True,isoangle=None,halo_id_params=None,useVerne=False,calcErrors=None,debug=False,screening=None,variant=None,pair_energy=None):
         """Main rate calculation method that routes to appropriate implementation.
         
         Args:
@@ -1266,8 +1428,40 @@ class DMeRate:
             Calculated rates
         """
 
+        if self.form_factor_type == 'qcdark2':
+            return self.calculate_semiconductor_rates(
+                mX_array,
+                halo_model,
+                FDMn,
+                ne,
+                integrate,
+                DoScreen,
+                isoangle=isoangle,
+                halo_id_params=halo_id_params,
+                useVerne=useVerne,
+                calcErrors=calcErrors,
+                debug=debug,
+                screening=screening,
+                variant=variant,
+                pair_energy=pair_energy,
+            )
         if self.material == 'Si' or self.material =='Ge':
-            return self.calculate_semiconductor_rates(mX_array,halo_model,FDMn,ne,integrate,DoScreen,isoangle=isoangle,halo_id_params=halo_id_params,useVerne=useVerne,calcErrors=calcErrors,debug=debug)
+            return self.calculate_semiconductor_rates(
+                mX_array,
+                halo_model,
+                FDMn,
+                ne,
+                integrate,
+                DoScreen,
+                isoangle=isoangle,
+                halo_id_params=halo_id_params,
+                useVerne=useVerne,
+                calcErrors=calcErrors,
+                debug=debug,
+                screening=screening,
+                variant=variant,
+                pair_energy=pair_energy,
+            )
         if self.material == 'Xe' or self.material == 'Ar':
             return self.calculate_nobleGas_rates(mX_array,halo_model,FDMn,ne,isoangle=isoangle,halo_id_params=halo_id_params,useVerne=useVerne,calcErrors=calcErrors,debug=debug,returnShells=False)
     
@@ -1340,7 +1534,7 @@ class DMeRate:
                 
             line += f'\n'
             lines.append(line)
-        if write: 
+        if write:
             f = open(filename,'w')
             first_line = f'FDM{fdm_dict[fdm]}:\tmX [MeV]\tsigmae={self.cross_section / nu.cm**2} [cm^2]\t'
             for ne in ne_bins:
@@ -1349,9 +1543,36 @@ class DMeRate:
             f.write(first_line)
             for line in lines:
                 f.write(line)
+            f.close()
+            self._write_sidecar(filename, halo_model=dm_halo_model, FDMn=fdm, DoScreen=DoScreen, integrate=integrate)
         return data
+
+    def _write_sidecar(self, dat_path: str, halo_model: str, FDMn: int, DoScreen: bool, integrate: bool):
+        import yaml
+        import DMeRates as _pkg
+        sidecar_path = dat_path + ".yaml"
+        config = {
+            'package_version': _pkg.__version__,
+            'backend':  self.form_factor_type,
+            'material': self.material,
+            'physics': {
+                'v0_km_s':      float(self.v0      / (nu.km / nu.s)),
+                'vEarth_km_s':  float(self.vEarth  / (nu.km / nu.s)),
+                'vEscape_km_s': float(self.vEscape / (nu.km / nu.s)),
+                'rhoX_GeV_cm3': float(self.rhoX    / (1e9 * nu.eV / nu.c0**2 / nu.cm**3)),
+                'sigma_e_cm2':  float(self.cross_section / nu.cm**2),
+            },
+            'halo_model': halo_model,
+            'FDMn':      FDMn,
+            'screening': DoScreen,
+            'integrate': integrate,
+        }
+        qcdark2_variant = getattr(self, 'qcdark2_variant', None)
+        if qcdark2_variant is not None:
+            config['qcdark2_variant'] = qcdark2_variant
+        with open(sidecar_path, 'w') as f:
+            yaml.dump(config, f, default_flow_style=False)
 
         
 
     
-

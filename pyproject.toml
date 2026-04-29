@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dmerates"
+version = "0.1.0"
+description = "Vectorized dark matter–electron scattering rate calculations for Si, Ge, Xe, and Ar"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "scipy",
+    "h5py",
+    "numericalunits",
+    # torch CUDA variant is environment-specific; install the right wheel before this package.
+    # e.g. pip install torch --index-url https://download.pytorch.org/whl/cu126
+    "torch>=2.0",
+    "torchquad",
+    "tqdm",
+    "PyYAML>=6.0",
+    "astropy",
+    "matplotlib",
+    # torchinterp1d is a vendored git submodule — install it first:
+    #   pip install -e torchinterp1d/
+    # Uncomment the line below only if the submodule is present and not yet installed:
+    # "torchinterp1d @ file:torchinterp1d",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "notebook",
+    "ipykernel",
+    "matplotlib",
+]
+# dft = []  # TODO: add QCDark2 DFT-generation dependencies when required
+
+[tool.setuptools.packages.find]
+include = ["DMeRates*"]
+
+[tool.setuptools.package-data]
+DMeRates = ["p100K.dat", "Rates/*.dat"]
