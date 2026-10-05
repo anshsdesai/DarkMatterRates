@@ -121,6 +121,8 @@ Derivation and validation notebooks live in `validation/` (e.g. `qcdark2_formula
 
 **Units**: All quantities carry `numericalunits` units throughout. To express a value in a specific unit, divide by it (e.g., `value / nu.km` gives km). The randomized unit scales in `Constants.py` act as a runtime unit-correctness test. Exception: `engines/dielectric.py` operates internally in bare QCDark2 floats (q in α·mₑ units, energies in eV) and converts at the boundary.
 
+**Import order with numericalunits**: importing DMeRates (any submodule) re-randomizes the `numericalunits` base scales once per process, which silently invalidates any nu-derived quantity created beforehand. Always `import DMeRates` *before* building `numericalunits` quantities; `Constants.py` emits a `RuntimeWarning` if numericalunits was imported first. In scripts/tests, never cache nu-scaled values across the first DMeRates import.
+
 **Halo model string keys**: `'shm'`, `'tsa'`, `'dpl'` trigger analytic computation (or file lookup); `'modulated'` and `'summer'` use DaMaSCUS/Verne files indexed by `isoangle` (integer 0–35, representing 0°–175° in 5° steps); `'imb'` uses the in-memory Maxwell-Boltzmann tensor path; `'srdm'` loads precomputed sub-relativistic DM flux files from `halo_data/srdm/` via the manifest.
 
 **Mediator spin** (`mediator_spin` parameter): controls the SRDM interaction mode. Canonical values are `'vector'`, `'scalar'`, `'approx'`, `'approx_full'` (alias: `'approx full'`). Noble gas SRDM only supports `'vector'`. Normalized by `srdm.mediators.normalize_mediator_spin()`.

@@ -50,3 +50,4 @@ tests/fixtures/
 form_factors/QCDark2/dielectric_functions/composite/*.h5
 form_factors/QCDark2/dielectric_functions/lfe/*.h5
 form_factors/QCDark2/dielectric_functions/nolfe/*.h5
+CLAUDE.MD

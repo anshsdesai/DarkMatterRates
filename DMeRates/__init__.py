@@ -1,8 +1,13 @@
-# __all__ = ["Constants","form_factor","form_factorQEDark","DM_Halo","DMeRates"]
-# import __all__
-# from .Constants import *
-# from .DM_Halo import DM_Halo_Distributions
-# from .form_factor import form_factor,form_factorQEDark
-# from .DMeRate import DMeRate
+import sys as _sys
+
+# Recorded BEFORE any DMeRates submodule pulls in numericalunits, so
+# Constants.py can tell whether user code imported numericalunits first.
+# Constants.py re-randomizes the numericalunits base unit scales, which
+# invalidates any nu-derived quantities created before this import.
+_NUMERICALUNITS_PREIMPORTED = 'numericalunits' in _sys.modules
+
+# Import Constants eagerly so the unit randomization happens at one
+# predictable point: the first `import DMeRates` (or any submodule).
+from . import Constants  # noqa: E402,F401
 
 __version__ = "0.1.0"

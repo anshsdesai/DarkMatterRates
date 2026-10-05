@@ -13,6 +13,7 @@ if str(MODULATION_DIR) not in sys.path:
 
 from isoangle import (  # noqa: E402
     FracDays,
+    SolarBeamIsoAngle,
     ThetaIso,
     get_site_location,
     get_site_thetaiso_loc,
@@ -63,3 +64,18 @@ def test_site_lookup_does_not_use_network(monkeypatch):
 
     assert isinstance(location, EarthLocation)
     assert 0.0 <= min_angle <= max_angle <= 180.0
+
+
+
+def test_juno_site_alias_and_solar_angle_are_available():
+    from astropy.time import Time
+
+    assert normalize_site_key("JUNO") == "JUNO"
+    assert normalize_site_key("Kaiping") == "JUNO"
+    location = get_site_location("JUNO")
+    thetaiso_loc = get_site_thetaiso_loc("JUNO")
+    solar_angle = SolarBeamIsoAngle(location, Time("2024-08-08T12:00:00", scale="utc"))
+
+    assert isinstance(location, EarthLocation)
+    assert thetaiso_loc[0] == pytest.approx(np.deg2rad(22.38))
+    assert 0.0 <= solar_angle <= 180.0

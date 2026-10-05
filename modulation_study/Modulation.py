@@ -255,6 +255,7 @@ def get_srdm_modulated_rates(
     pair_energy=None,
     mediator_spin="vector",
     dmRateObject=None,
+    form_factor_type=None,
     base_data_dir=None,
     verbose=False,
 ):
@@ -295,6 +296,9 @@ def get_srdm_modulated_rates(
 
     if dmRateObject is not None:
         dmrates = dmRateObject
+    elif form_factor_type is not None:
+        import DMeRates.DMeRate as DMeRate
+        dmrates = DMeRate.DMeRate(material, form_factor_type=form_factor_type)
     else:
         dmrates = _create_dmrate(material, useQCDark=useQCDark)
 
@@ -442,8 +446,904 @@ def get_srdm_daily_modulation_amplitude(*args, **kwargs):
         "fractional_modulation": fractional,
     }
 
-    
-    
+
+def discover_srdm_solar_reflection_points(
+    FDMn=2,
+    modulated_source="Verne",
+    base_data_dir=None,
+):
+    """Return available SRDMBeam parameter points for solar-reflection scans.
+
+    The returned masses use the public DMeRates MeV convention. The directory
+    metadata site label is intentionally not used; the lab location is supplied
+    separately when computing the solar-angle trajectory.
+    """
+    import re
+    from pathlib import Path
+
+    from DMeRates.data.registry import DataRegistry
+    from DMeRates.srdm.flux_loader import (
+        available_srdmbeam_ring_indices,
+        normalize_srdmbeam_modulated_source,
+        srdmbeam_fdm_directory,
+    )
+
+    root = Path(base_data_dir) if base_data_dir is not None else DataRegistry.halo_root
+    source = normalize_srdmbeam_modulated_source(modulated_source)
+    source_root = root / "modulated" / srdmbeam_fdm_directory(FDMn)
+    if source == "SRDMBeam":
+        source_root = source_root / "SRDMBeam"
+    else:
+        source_root = source_root / source / "SRDMBeam"
+
+    if not source_root.exists():
+        return []
+
+    points = []
+    pattern = re.compile(r"mDM_(?P<mass>.+)_MeV_sigmaE_(?P<sigma>.+)_cm2$")
+    for parameter_dir in sorted(source_root.iterdir()):
+        if not parameter_dir.is_dir():
+            continue
+        match = pattern.match(parameter_dir.name)
+        if match is None:
+            continue
+        mX_MeV = float(match.group("mass").replace("_", "."))
+        sigma_e_cm2 = float(match.group("sigma"))
+        ring_indices = available_srdmbeam_ring_indices(
+            mX_MeV,
+            sigma_e_cm2,
+            FDMn,
+            modulated_source=modulated_source,
+            base_data_dir=root,
+        )
+        if not ring_indices:
+            continue
+        points.append(
+            {
+                "mX_MeV": mX_MeV,
+                "sigma_e_cm2": sigma_e_cm2,
+                "FDMn": int(FDMn),
+                "modulated_source": source,
+                "parameter_dir": str(parameter_dir),
+                "ring_count": len(ring_indices),
+                "ring_indices": ring_indices,
+            }
+        )
+
+    return sorted(points, key=lambda row: (row["mX_MeV"], row["sigma_e_cm2"]))
+
+
+def _srdm_original_modulation_summary(times, srdm_isoangles_deg, daily_rates):
+    """Return the original daily-modulation amplitude convention."""
+    import numpy as np
+
+    rates = np.asarray(daily_rates, dtype=float)
+    if rates.ndim == 1:
+        rates = rates[:, None]
+
+    rate_min = np.min(rates, axis=0)
+    rate_max = np.max(rates, axis=0)
+    amplitude = 0.5 * (rate_max - rate_min)
+    average = np.mean(rates, axis=0)
+    fractional = np.divide(
+        amplitude,
+        average,
+        out=np.zeros_like(amplitude),
+        where=average != 0,
+    )
+
+    return {
+        "times": times,
+        "srdm_isoangles_deg": srdm_isoangles_deg,
+        "daily_rates": rates,
+        "rate_min": rate_min,
+        "rate_max": rate_max,
+        "amplitude": amplitude,
+        "average": average,
+        "fractional_amplitude": fractional,
+    }
+
+
+def _srdm_cache_slug(value):
+    """Return a filename-safe token for SRDM cache keys."""
+    import re
+
+    token = str(value).strip()
+    token = token.replace("+", "p").replace("-", "m").replace(".", "_")
+    token = re.sub(r"[^A-Za-z0-9_=]+", "_", token)
+    return token.strip("_") or "none"
+
+
+def _srdm_date_token(date):
+    if date is None:
+        date = [8, 8, 2024]
+    if isinstance(date, (list, tuple)) and len(date) == 3:
+        return f"{int(date[2]):04d}-{int(date[1]):02d}-{int(date[0]):02d}"
+    return _srdm_cache_slug(date)
+
+
+def _srdm_ne_values(ne):
+    import numpy as np
+
+    if isinstance(ne, (int, np.integer)):
+        return [int(ne)]
+    return [int(value) for value in ne]
+
+
+def _srdm_ne_token(ne):
+    return "ne" + "_".join(str(value) for value in _srdm_ne_values(ne))
+
+
+def _srdm_solar_reflection_cache_root(cache_dir=None):
+    from pathlib import Path
+
+    if cache_dir is not None:
+        return Path(cache_dir)
+    return Path(__file__).resolve().parent / "srdm_solar_reflection_rates"
+
+
+def _srdm_solar_reflection_run_cache_dir(
+    material,
+    FDMn,
+    location,
+    date,
+    ne,
+    cadence_minutes,
+    modulated_source,
+    screening,
+    variant,
+    mediator_spin,
+    form_factor_type,
+    cache_dir=None,
+):
+    root = _srdm_solar_reflection_cache_root(cache_dir)
+    slice_name = "_".join(
+        [
+            _srdm_cache_slug(material),
+            _srdm_cache_slug(form_factor_type),
+            _srdm_cache_slug(screening or "screening_none"),
+            _srdm_cache_slug(variant or "variant_none"),
+            _srdm_cache_slug(mediator_spin),
+            f"FDM{int(FDMn)}",
+            _srdm_ne_token(ne),
+        ]
+    )
+    run_name = "_".join(
+        [
+            _srdm_cache_slug(modulated_source),
+            _srdm_cache_slug(location),
+            _srdm_date_token(date),
+            f"cadence{int(cadence_minutes)}min",
+        ]
+    )
+    return root / slice_name / run_name
+
+
+def _srdm_solar_reflection_point_cache_path(
+    material,
+    mX,
+    sigmaE,
+    FDMn,
+    ne,
+    location,
+    date,
+    cadence_minutes,
+    modulated_source,
+    screening,
+    variant,
+    mediator_spin,
+    form_factor_type,
+    cache_dir=None,
+):
+    run_dir = _srdm_solar_reflection_run_cache_dir(
+        material,
+        FDMn,
+        location,
+        date,
+        ne,
+        cadence_minutes,
+        modulated_source,
+        screening,
+        variant,
+        mediator_spin,
+        form_factor_type,
+        cache_dir=cache_dir,
+    )
+    mass_token = _srdm_cache_slug(format(float(mX), ".12g"))
+    sigma_token = _srdm_cache_slug(format(float(sigmaE), ".6g"))
+    return run_dir / "daily_rates" / f"mX_{mass_token}_MeV_sigmaE_{sigma_token}_cm2.csv"
+
+
+def _srdm_times_to_strings(times, row_count):
+    import numpy as np
+
+    if hasattr(times, "isot"):
+        values = np.asarray(times.isot)
+    elif isinstance(times, str):
+        values = np.asarray([times] * row_count)
+    else:
+        try:
+            values = np.asarray([str(value) for value in times])
+        except TypeError:
+            values = np.asarray([str(times)] * row_count)
+    if values.size != row_count:
+        values = np.asarray([str(value) for value in range(row_count)])
+    return values
+
+
+def _write_srdm_solar_reflection_daily_cache(path, times, srdm_isoangles_deg, daily_rates, ne):
+    import csv
+    import numpy as np
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    ne_values = _srdm_ne_values(ne)
+    angles = np.asarray(srdm_isoangles_deg, dtype=float)
+    rates = np.asarray(daily_rates, dtype=float)
+    if rates.ndim == 1:
+        rates = rates[:, None]
+    time_strings = _srdm_times_to_strings(times, rates.shape[0])
+
+    fieldnames = ["time_index", "time_iso", "srdm_isoangle_deg"] + [
+        f"rate_ne{value}" for value in ne_values
+    ]
+    with path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for index in range(rates.shape[0]):
+            row = {
+                "time_index": index,
+                "time_iso": time_strings[index],
+                "srdm_isoangle_deg": angles[index],
+            }
+            for col, ne_value in enumerate(ne_values):
+                row[f"rate_ne{ne_value}"] = rates[index, col]
+            writer.writerow(row)
+
+
+def _read_srdm_solar_reflection_daily_cache(path, ne):
+    import csv
+    import numpy as np
+
+    ne_values = _srdm_ne_values(ne)
+    time_strings = []
+    angles = []
+    rate_rows = []
+    with path.open() as handle:
+        reader = csv.DictReader(handle)
+        required = {"time_index", "time_iso", "srdm_isoangle_deg"} | {
+            f"rate_ne{value}" for value in ne_values
+        }
+        missing = required - set(reader.fieldnames or [])
+        if missing:
+            raise ValueError(f"SRDM cache file {path} is missing columns {sorted(missing)}")
+        for row in reader:
+            time_strings.append(row["time_iso"])
+            angles.append(float(row["srdm_isoangle_deg"]))
+            rate_rows.append([float(row[f"rate_ne{value}"]) for value in ne_values])
+    if not rate_rows:
+        raise ValueError(f"SRDM cache file {path} has no rows")
+    return time_strings, np.asarray(angles, dtype=float), np.asarray(rate_rows, dtype=float)
+
+
+def _update_srdm_solar_reflection_summary_cache(run_dir, record):
+    import csv
+
+    run_dir.mkdir(parents=True, exist_ok=True)
+    path = run_dir / "summary.csv"
+    key_fields = ["mX_MeV", "sigma_e_cm2", "ne"]
+    rows = []
+    if path.exists():
+        with path.open() as handle:
+            rows = list(csv.DictReader(handle))
+    key = tuple(str(record[field]) for field in key_fields)
+    rows = [row for row in rows if tuple(str(row.get(field, "")) for field in key_fields) != key]
+    rows.append({key: str(value) for key, value in record.items()})
+    fieldnames = list(record.keys())
+    with path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _cache_record_from_srdm_summary(
+    summary,
+    material,
+    mX,
+    sigmaE,
+    FDMn,
+    ne,
+    location,
+    date,
+    cadence_minutes,
+    modulated_source,
+    screening,
+    variant,
+    mediator_spin,
+    form_factor_type,
+    cache_file,
+):
+    import numpy as np
+
+    ne_values = _srdm_ne_values(ne)
+    idx = 0
+    return {
+        "material": material,
+        "mX_MeV": float(mX),
+        "sigma_e_cm2": float(sigmaE),
+        "FDMn": int(FDMn),
+        "ne": ne_values[idx],
+        "location": location,
+        "date": _srdm_date_token(date),
+        "cadence_minutes": int(cadence_minutes),
+        "modulated_source": modulated_source,
+        "screening": screening,
+        "variant": variant,
+        "mediator_spin": mediator_spin,
+        "form_factor_type": form_factor_type,
+        "rate_min": np.asarray(summary["rate_min"]).reshape(-1)[idx],
+        "rate_max": np.asarray(summary["rate_max"]).reshape(-1)[idx],
+        "average": np.asarray(summary["average"]).reshape(-1)[idx],
+        "amplitude": np.asarray(summary["amplitude"]).reshape(-1)[idx],
+        "fractional_amplitude": np.asarray(summary["fractional_amplitude"]).reshape(-1)[idx],
+        "daily_rates_file": str(cache_file),
+    }
+
+
+def get_srdm_solar_reflection_amplitude(
+    material="Si",
+    mX=0.01,
+    sigmaE=1e-42,
+    FDMn=2,
+    ne=1,
+    location="JUNO",
+    date=None,
+    cadence_minutes=10,
+    modulated_source="Verne",
+    useQCDark=True,
+    DoScreen=True,
+    screening="rpa",
+    variant="composite",
+    pair_energy=None,
+    mediator_spin="vector",
+    dmRateObject=None,
+    form_factor_type="qcdark2",
+    base_data_dir=None,
+    cache_dir=None,
+    use_cache=True,
+    overwrite=False,
+    verbose=False,
+):
+    """Return SRDM solar-reflection daily amplitude using the old convention.
+
+    ``amplitude`` is ``(max(rate) - min(rate)) / 2`` and
+    ``fractional_amplitude`` is ``amplitude / mean(rate)`` over the sampled day.
+    """
+    if date is None:
+        date = [8, 8, 2024]
+
+    cache_file = _srdm_solar_reflection_point_cache_path(
+        material,
+        mX,
+        sigmaE,
+        FDMn,
+        ne,
+        location,
+        date,
+        cadence_minutes,
+        modulated_source,
+        screening,
+        variant,
+        mediator_spin,
+        form_factor_type,
+        cache_dir=cache_dir,
+    )
+    run_cache_dir = cache_file.parents[1]
+    if use_cache and cache_file.exists() and not overwrite:
+        times, srdm_isoangles_deg, daily_rates = _read_srdm_solar_reflection_daily_cache(
+            cache_file,
+            ne,
+        )
+        summary = _srdm_original_modulation_summary(
+            times,
+            srdm_isoangles_deg,
+            daily_rates,
+        )
+        summary["cache_file"] = str(cache_file)
+        summary["from_cache"] = True
+        return summary
+
+    times, srdm_isoangles_deg, daily_rates = get_srdm_daily_rates(
+        material,
+        mX,
+        sigmaE,
+        FDMn,
+        ne,
+        location,
+        date,
+        cadence_minutes=cadence_minutes,
+        modulated_source=modulated_source,
+        useQCDark=useQCDark,
+        DoScreen=DoScreen,
+        screening=screening,
+        variant=variant,
+        pair_energy=pair_energy,
+        mediator_spin=mediator_spin,
+        dmRateObject=dmRateObject,
+        form_factor_type=form_factor_type,
+        base_data_dir=base_data_dir,
+        verbose=verbose,
+    )
+    summary = _srdm_original_modulation_summary(
+        times,
+        srdm_isoangles_deg,
+        daily_rates,
+    )
+    summary["cache_file"] = str(cache_file)
+    summary["from_cache"] = False
+    if use_cache:
+        _write_srdm_solar_reflection_daily_cache(
+            cache_file,
+            times,
+            srdm_isoangles_deg,
+            daily_rates,
+            ne,
+        )
+        _update_srdm_solar_reflection_summary_cache(
+            run_cache_dir,
+            _cache_record_from_srdm_summary(
+                summary,
+                material,
+                mX,
+                sigmaE,
+                FDMn,
+                ne,
+                location,
+                date,
+                cadence_minutes,
+                modulated_source,
+                screening,
+                variant,
+                mediator_spin,
+                form_factor_type,
+                cache_file,
+            ),
+        )
+    return summary
+
+
+def get_srdm_solar_reflection_amplitudes(
+    material="Si",
+    FDMn=2,
+    location="JUNO",
+    date=None,
+    ne=1,
+    fractional=False,
+    returnaverage=False,
+    cadence_minutes=10,
+    modulated_source="Verne",
+    useQCDark=True,
+    DoScreen=True,
+    screening="rpa",
+    variant="composite",
+    pair_energy=None,
+    mediator_spin="vector",
+    dmRateObject=None,
+    form_factor_type="qcdark2",
+    base_data_dir=None,
+    cache_dir=None,
+    use_cache=True,
+    overwrite=False,
+    points=None,
+    verbose=False,
+):
+    """Return arrays of SRDM solar-reflection amplitudes for available points."""
+    import numpy as np
+    from tqdm.autonotebook import tqdm
+
+    if date is None:
+        date = [8, 8, 2024]
+    if points is None:
+        points = discover_srdm_solar_reflection_points(
+            FDMn=FDMn,
+            modulated_source=modulated_source,
+            base_data_dir=base_data_dir,
+        )
+
+    if dmRateObject is None:
+        import DMeRates.DMeRate as DMeRate
+        dmRateObject = DMeRate.DMeRate(material, form_factor_type=form_factor_type)
+
+    masses = []
+    sigmaEs = []
+    values = []
+    iterator = tqdm(points, desc="Fetching SRDM Solar Reflection Data")
+    for point in iterator:
+        mX = float(point["mX_MeV"])
+        sigmaE = float(point["sigma_e_cm2"])
+        try:
+            summary = get_srdm_solar_reflection_amplitude(
+                material=material,
+                mX=mX,
+                sigmaE=sigmaE,
+                FDMn=FDMn,
+                ne=ne,
+                location=location,
+                date=date,
+                cadence_minutes=cadence_minutes,
+                modulated_source=modulated_source,
+                useQCDark=useQCDark,
+                DoScreen=DoScreen,
+                screening=screening,
+                variant=variant,
+                pair_energy=pair_energy,
+                mediator_spin=mediator_spin,
+                dmRateObject=dmRateObject,
+                form_factor_type=form_factor_type,
+                base_data_dir=base_data_dir,
+                cache_dir=cache_dir,
+                use_cache=use_cache,
+                overwrite=overwrite,
+                verbose=verbose,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            if verbose:
+                print(f"Skipping SRDM point mX={mX}, sigmaE={sigmaE}: {exc}")
+            continue
+
+        if returnaverage:
+            value = summary["average"]
+        elif fractional:
+            value = summary["fractional_amplitude"]
+        else:
+            value = summary["amplitude"]
+        values.append(np.asarray(value, dtype=float).reshape(-1)[0])
+        masses.append(mX)
+        sigmaEs.append(sigmaE)
+
+    return np.asarray(masses), np.asarray(sigmaEs), np.asarray(values)
+
+
+def get_srdm_solar_reflection_contour_data(
+    material="Si",
+    FDMn=2,
+    location="JUNO",
+    date=None,
+    ne=1,
+    fractional=False,
+    returnaverage=False,
+    cadence_minutes=10,
+    modulated_source="Verne",
+    useQCDark=True,
+    DoScreen=True,
+    screening="rpa",
+    variant="composite",
+    pair_energy=None,
+    mediator_spin="vector",
+    dmRateObject=None,
+    form_factor_type="qcdark2",
+    base_data_dir=None,
+    cache_dir=None,
+    use_cache=True,
+    overwrite=False,
+    points=None,
+    grid_size=300,
+    method="linear",
+    unitize=False,
+    verbose=False,
+):
+    """Prepare SRDM solar-reflection amplitudes for mass/sigma contour plots."""
+    import numpy as np
+    from scipy.interpolate import griddata
+
+    masses, cross_sections, amplitudes = get_srdm_solar_reflection_amplitudes(
+        material=material,
+        FDMn=FDMn,
+        location=location,
+        date=date,
+        ne=ne,
+        fractional=fractional,
+        returnaverage=returnaverage,
+        cadence_minutes=cadence_minutes,
+        modulated_source=modulated_source,
+        useQCDark=useQCDark,
+        DoScreen=DoScreen,
+        screening=screening,
+        variant=variant,
+        pair_energy=pair_energy,
+        mediator_spin=mediator_spin,
+        dmRateObject=dmRateObject,
+        form_factor_type=form_factor_type,
+        base_data_dir=base_data_dir,
+        cache_dir=cache_dir,
+        use_cache=use_cache,
+        overwrite=overwrite,
+        points=points,
+        verbose=verbose,
+    )
+    if masses.size < 3:
+        raise ValueError("Need at least three SRDM points to build a contour grid")
+
+    log_masses = np.log10(masses)
+    log_cross_sections = np.log10(cross_sections)
+    log_mass_axis = np.linspace(log_masses.min(), log_masses.max(), grid_size)
+    log_cs_axis = np.linspace(log_cross_sections.min(), log_cross_sections.max(), grid_size)
+    log_mass_grid, log_cs_grid = np.meshgrid(log_mass_axis, log_cs_axis)
+
+    amplitude_grid = griddata(
+        points=(log_masses, log_cross_sections),
+        values=amplitudes,
+        xi=(log_mass_grid, log_cs_grid),
+        method=method,
+    )
+
+    if unitize:
+        amplitude_grid *= nu.kg * nu.day
+
+    return 10**log_mass_axis, 10**log_cs_axis, amplitude_grid
+
+
+
+
+def plot_solar_constraints_overlay(
+    ax,
+    FDMn,
+    *,
+    include_all_constraints=False,
+    include_migdal=False,
+    include_freeze_in=False,
+    solar_kwargs=None,
+    all_kwargs=None,
+    migdal_kwargs=None,
+    freeze_in_kwargs=None,
+    verbose=False,
+):
+    """Overlay current solar constraints on an existing mass/cross-section axis."""
+    import sys
+    from pathlib import Path
+
+    limits_path = Path(__file__).resolve().parents[1] / "limits"
+    if str(limits_path) not in sys.path:
+        sys.path.append(str(limits_path))
+
+    try:
+        from Constraints import plot_constraints
+    except Exception as exc:
+        if verbose:
+            print(f"Could not import constraints: {exc}")
+        return []
+
+    lines = []
+    if include_all_constraints:
+        kwargs = dict(color="black", lw=2.5, ls="-", zorder=8)
+        if all_kwargs:
+            kwargs.update(all_kwargs)
+        try:
+            x, y = plot_constraints("All", FDMn)
+            lines.extend(ax.plot(x, y, **kwargs))
+        except Exception as exc:
+            if verbose:
+                print(f"Could not overlay all direct constraints: {exc}")
+
+    kwargs = dict(color="black", lw=2.5, ls="--", zorder=9)
+    if solar_kwargs:
+        kwargs.update(solar_kwargs)
+    try:
+        x, y = plot_constraints("Solar", FDMn)
+        lines.extend(ax.plot(x, y, **kwargs))
+    except Exception as exc:
+        if verbose:
+            print(f"Could not overlay solar constraints: {exc}")
+
+    if include_migdal and FDMn == 0:
+        kwargs = dict(color="black", lw=2.5, ls=":", zorder=8)
+        if migdal_kwargs:
+            kwargs.update(migdal_kwargs)
+        try:
+            x, y = plot_constraints("Migdal", FDMn)
+            lines.extend(ax.plot(x, y, **kwargs))
+        except Exception as exc:
+            if verbose:
+                print(f"Could not overlay Migdal constraints: {exc}")
+
+    if include_freeze_in:
+        if int(FDMn) != 2:
+            if verbose:
+                print("freeze_in.csv is only overlaid for FDMn=2")
+        else:
+            kwargs = dict(color="royalblue", lw=2.5, ls=":", zorder=10)
+            if freeze_in_kwargs:
+                kwargs.update(freeze_in_kwargs)
+            try:
+                import numpy as np
+
+                freeze_in = np.loadtxt(limits_path / "freeze_in.csv", delimiter=",")
+                lines.extend(ax.plot(freeze_in[:, 0], freeze_in[:, 1], **kwargs))
+            except Exception as exc:
+                if verbose:
+                    print(f"Could not overlay freeze-in target: {exc}")
+
+    return lines
+
+def plot_srdm_solar_reflection_contour(
+    material="Si",
+    FDMn=2,
+    location="JUNO",
+    date=None,
+    ne=1,
+    fractional=False,
+    cadence_minutes=10,
+    modulated_source="Verne",
+    useQCDark=True,
+    DoScreen=True,
+    screening="rpa",
+    variant="composite",
+    mediator_spin="vector",
+    form_factor_type="qcdark2",
+    base_data_dir=None,
+    cache_dir=None,
+    use_cache=True,
+    overwrite=False,
+    points=None,
+    grid_size=300,
+    shade_fractional_threshold=False,
+    fractional_threshold=0.03,
+    threshold_hatch="///",
+    plot_solar_constraints=False,
+    include_all_constraints=False,
+    include_freeze_in=False,
+    solar_constraint_kwargs=None,
+    all_constraint_kwargs=None,
+    freeze_in_kwargs=None,
+    xlim=None,
+    ylim=None,
+    savefig=False,
+    outfile=None,
+    verbose=False,
+):
+    """Plot a one-panel preliminary SRDM solar-reflection contour."""
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib
+    from matplotlib import colors
+
+    if date is None:
+        date = [8, 8, 2024]
+
+    set_default_plotting_params(fontsize=28)
+    unitize = not fractional
+    masses, sigmaEs, amplitudes = get_srdm_solar_reflection_contour_data(
+        material=material,
+        FDMn=FDMn,
+        location=location,
+        date=date,
+        ne=ne,
+        fractional=fractional,
+        cadence_minutes=cadence_minutes,
+        modulated_source=modulated_source,
+        useQCDark=useQCDark,
+        DoScreen=DoScreen,
+        screening=screening,
+        variant=variant,
+        mediator_spin=mediator_spin,
+        form_factor_type=form_factor_type,
+        base_data_dir=base_data_dir,
+        cache_dir=cache_dir,
+        use_cache=use_cache,
+        overwrite=overwrite,
+        points=points,
+        grid_size=grid_size,
+        unitize=unitize,
+        verbose=verbose,
+    )
+
+    fig, ax = plt.subplots(figsize=(10, 8), layout="constrained")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.get_xaxis().set_major_formatter(matplotlib.ticker.FormatStrFormatter("%g"))
+    ax.set_xlabel(r"$m_\chi$ [MeV]")
+    ax.set_ylabel(r"$\overline{\sigma}_e$ [cm$^2$]")
+
+    values = np.asarray(amplitudes, dtype=float)
+    finite = values[np.isfinite(values) & (values > 0)]
+    if finite.size == 0:
+        raise ValueError("No positive finite SRDM contour values were available")
+
+    if fractional:
+        levs = np.power(10.0, np.arange(-4.0, 0.51, 0.25))
+        norm = colors.LogNorm(vmin=levs[0], vmax=levs[-1])
+        label = r"$A / \langle R \rangle$"
+        title_prefix = "Fractional"
+    else:
+        low_exp = np.floor(np.log10(np.nanmin(finite)))
+        high_exp = np.ceil(np.log10(np.nanmax(finite))) + 1
+        if high_exp <= low_exp:
+            high_exp = low_exp + 1
+        levs = np.power(10.0, np.arange(low_exp, high_exp + 1))
+        norm = colors.LogNorm(vmin=levs[0], vmax=levs[-1])
+        label = "Amplitude [events/kg/day]"
+        title_prefix = "Absolute"
+
+    contour = ax.contourf(
+        masses,
+        sigmaEs,
+        values,
+        levs,
+        norm=norm,
+        cmap="Reds",
+        extend="both",
+    )
+    contour.cmap.set_under(color="white")
+    cbar = fig.colorbar(contour, ax=ax)
+    cbar.ax.set_title(label, fontsize=18)
+
+    if fractional and shade_fractional_threshold:
+        threshold = float(fractional_threshold)
+        threshold_values = np.ma.masked_invalid(values)
+        if np.nanmin(finite) <= threshold <= np.nanmax(finite):
+            ax.contourf(
+                masses,
+                sigmaEs,
+                threshold_values,
+                levels=[threshold, np.nanmax(finite)],
+                colors="none",
+                hatches=[threshold_hatch],
+                alpha=0.0,
+            )
+            threshold_contour = ax.contour(
+                masses,
+                sigmaEs,
+                threshold_values,
+                levels=[threshold],
+                colors="black",
+                linewidths=2.0,
+            )
+            ax.clabel(
+                threshold_contour,
+                fmt={threshold: f"{100.0 * threshold:g}%"},
+                inline=True,
+                fontsize=16,
+            )
+
+    if plot_solar_constraints:
+        plot_solar_constraints_overlay(
+            ax,
+            FDMn,
+            include_all_constraints=include_all_constraints,
+            include_freeze_in=include_freeze_in,
+            solar_kwargs=solar_constraint_kwargs,
+            all_kwargs=all_constraint_kwargs,
+            freeze_in_kwargs=freeze_in_kwargs,
+            verbose=verbose,
+        )
+
+    fdm_label = r"$F_{\mathrm{DM}}=(\alpha m_e/q)^2$" if FDMn == 2 else r"$F_{\mathrm{DM}}=1$"
+    ax.set_title(
+        (
+            f"{title_prefix} SRDM Solar-Reflection Modulation\n"
+            f"{material}, {location}, {date[0]:02d}-{date[1]:02d}-{date[2]}, "
+            f"{fdm_label}, n_e={ne}"
+        ),
+        fontsize=22,
+    )
+
+    if xlim is not None:
+        ax.set_xlim(*xlim)
+    if ylim is not None:
+        ax.set_ylim(*ylim)
+
+    if savefig:
+        if outfile is None:
+            frac_str = "fractional_" if fractional else ""
+            outfile = (
+                f"figures/{frac_str}srdm_solar_reflection_"
+                f"{material}_{location}_FDM{FDMn}_ne{ne}.png"
+            )
+        fig.savefig(outfile, bbox_inches="tight", dpi=180)
+
+    return fig, ax, contour
+
+
+
 def generate_modulated_rates(material,FDMn,useQCDark = True,useVerne=True,calcError=None,doScreen=True,overwrite=False,verbose=False,save=True,summer=False,outdir= './'):
     """Generate and save modulated rate data for a range of masses and cross-sections.
     
@@ -3163,7 +4063,7 @@ def plotRateComparisonSubplots(material,sigmaE_list,mX_list,fdm,plotVerne=True,s
             if showScatter:
                 if showErr:
                     current_ax.errorbar(isoangles,rates,yerr=rate_err,linestyle='')
-                current_ax.scatter(isoangles,rates,label='Data',s=100,color='black')
+                current_ax.scatter(isoangles,rates,label='DaMaSCUS',s=100,color='black')
 
                 if showFit:
                     if fdm == 2 and (material == 'Xe' or material == "Ar"):
@@ -3207,7 +4107,7 @@ def plotRateComparisonSubplots(material,sigmaE_list,mX_list,fdm,plotVerne=True,s
             if (material == 'Ar' or material == 'Xe') and fdm == 2 or (fdm == 0 and (i ==0 or i ==1) and (material == 'Ar' or material == 'Xe')) or (material == 'Si' and (i == 2) and fdm == 0) or (material == 'Si' and (i ==1 or i == 2) and fdm == 2):# or (material == 'Si' and i ==0 and fdm == 2): 
                 current_ax.legend(loc='upper left',prop={'size': small})
             elif material == 'Si' and i ==0:
-                current_ax.legend(loc='center left',prop={'size': small})
+                current_ax.legend(loc='center right',prop={'size': small})
             else:
                 current_ax.legend(loc='center right',prop={'size': small})
 
@@ -3269,14 +4169,14 @@ def plotRateComparisonSubplots(material,sigmaE_list,mX_list,fdm,plotVerne=True,s
 
 
 
-def plotMeanFreePath(FDMn,plotConstraints=True,cmap_name='viridis', mX_range=(0.1, 1000), sigmaE_range=None):
+def plotMeanFreePath(FDMn,plotConstraints=True,cmap_name='viridis', mX_range=(0.01, 1000), sigmaE_range=None):
     """Plot DM mean free path through Earth for given form factor.
     
     Args:
         FDMn: Form factor model (0=FDM1, 2=FDMq2)
         plotConstraints: Plot experimental constraints (default True)
         cmap_name: matplotlib Colormap name (default 'viridis')
-        mX_range: Tuple of (min, max) for DM mass in MeV (default (0.1, 1000))
+        mX_range: Tuple of (min, max) for DM mass in MeV (default (0.01, 1000))
         sigmaE_range: Tuple of (min, max) for cross section in cm^2 (default depends on FDMn)
     """
     import numpy as np

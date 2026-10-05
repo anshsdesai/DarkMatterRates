@@ -6,6 +6,12 @@
 import random
 random.seed(0)
 
+# Importing DMeRates here (immediately after seeding, and before pytest
+# collects any test module that might import numericalunits first) fixes the
+# randomized unit scales at one deterministic point and avoids the
+# numericalunits-preimported RuntimeWarning from DMeRates.Constants.
+import DMeRates  # noqa: F401
+
 import pytest
 import numpy as np
 

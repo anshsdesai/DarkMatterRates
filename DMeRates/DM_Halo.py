@@ -1,4 +1,5 @@
 from .Constants import *
+from . import Constants as _Constants
 import numericalunits as nu
 class DM_Halo_Distributions:
     """Class for calculating and managing dark matter halo velocity distributions.
@@ -36,7 +37,9 @@ class DM_Halo_Distributions:
         else:
             self.rhoX = RHOX
         if crosssection is None:
-            self.cross_section = crosssection 
+            # The parameter shadows the Constants global, so reference the
+            # module explicitly for the default.
+            self.cross_section = _Constants.crosssection
         else:
             self.cross_section = crosssection
 

@@ -327,22 +327,25 @@ class DMeRate:
 
     def update_params(self,v0,vEarth,vEscape,rhoX,crosssection):
         """Update DM halo parameters.
-        
+
         Args:
             v0 (float): Most probable DM velocity (km/s)
             vEarth (float): Earth's velocity (km/s)
             vEscape (float): Galactic escape velocity (km/s)
-            rhoX (float): Local DM density (eV/cm^3)
+            rhoX (float): Local DM density (eV/c^2/cm^3, e.g. 0.3e9 for 0.3 GeV/cm^3)
             crosssection (float): DM cross section (cm^2)
         """
-        #assuming values passed in are km/s,km/s,km/s,eV/cm^3,cm^2
-        #masses must be in eV if passed in 
+        #assuming values passed in are km/s,km/s,km/s,eV/c^2/cm^3,cm^2
+        #masses must be in eV if passed in
         self.v0 = v0* (nu.km / nu.s)
         self.vEarth = vEarth* (nu.km / nu.s)
         self.vEscape = vEscape* (nu.km / nu.s)
-        self.rhoX = rhoX* nu.eV / (nu.cm**3)
+        # Stored as a mass density to match Constants.rhoX (GeV/c^2/cm^3);
+        # downstream code (e.g. the QCDark2 path) multiplies by c0^2 to
+        # recover the energy density.
+        self.rhoX = rhoX* nu.eV / (nu.c0**2 * nu.cm**3)
         self.cross_section = crosssection* nu.cm**2
-        self.DM_Halo = DM_Halo_Distributions(self.v0,self.vEarth,self.vEscape,self.rhoX)
+        self.DM_Halo = DM_Halo_Distributions(self.v0,self.vEarth,self.vEscape,self.rhoX,self.cross_section)
 
    
     def step_probabilities(self,ne):

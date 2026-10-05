@@ -1,16 +1,41 @@
-import numericalunits as nu
 import random
-#-2 to 2 are default values.
-nu.m =10 ** random.uniform(1,2) # meter --this scale should be fine
-nu.s =10 ** random.uniform(5,7) # s -- relevant scale is days or years, so this is fine
-nu.kg =10 ** random.uniform(10,12) # kg -- working with tiny masses, so setting the scale up
-nu.C = 10 ** random.uniform(-2,2) # coulomb (not relevant)
-nu.K = 10 ** random.uniform(-2,2) # kelvin (not relevant)
+import warnings
 
-#comment this out if you want to debug and make sure units are correct, otherwise leave on to avoid numerical instability from picking random units
-# nu.reset_units('SI')
+import numericalunits as nu
 
-nu.set_derived_units_and_constants()
+# DMeRates re-randomizes the numericalunits base scales as a runtime
+# unit-correctness check, with ranges chosen to avoid float overflow/underflow
+# for the tiny masses and energies used here (numericalunits' own defaults are
+# 10**uniform(-2, 2)). This REPLACES the scales numericalunits picked at its
+# own import, so any nu-derived quantity created before DMeRates was first
+# imported is invalid afterwards: always import DMeRates before building
+# numericalunits quantities. The guard makes the randomization run exactly
+# once per process (e.g. safe under importlib.reload).
+if not getattr(nu, '_dmerates_randomized', False):
+    try:
+        from DMeRates import _NUMERICALUNITS_PREIMPORTED as _nu_preimported
+    except ImportError:
+        _nu_preimported = False
+    if _nu_preimported:
+        warnings.warn(
+            "numericalunits was imported before DMeRates. DMeRates re-randomizes "
+            "the numericalunits base unit scales on its first import, so any "
+            "quantities built with numericalunits before this point are no longer "
+            "valid and must be re-created. Import DMeRates before numericalunits "
+            "to avoid this warning.",
+            RuntimeWarning,
+        )
+    nu.m = 10 ** random.uniform(1, 2)    # meter --this scale should be fine
+    nu.s = 10 ** random.uniform(5, 7)    # s -- relevant scale is days or years, so this is fine
+    nu.kg = 10 ** random.uniform(10, 12) # kg -- working with tiny masses, so setting the scale up
+    nu.C = 10 ** random.uniform(-2, 2)   # coulomb (not relevant)
+    nu.K = 10 ** random.uniform(-2, 2)   # kelvin (not relevant)
+
+    # Call nu.reset_units('SI') here instead if you want to debug and make sure
+    # units are correct; otherwise leave the randomization on.
+
+    nu.set_derived_units_and_constants()
+    nu._dmerates_randomized = True
 #ATOMIC WEIGHTS
 
 

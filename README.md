@@ -63,6 +63,8 @@ Detailed dependencies can be found in `requirements.txt`.
 Requires [numpy](http://www.numpy.org), [scipy](https://www.scipy.org) and uses [pytorch](https://www.pytorch.org) to speed up rate calculations and make use of GPUs (if you have one). Other requirements are fairly standard [matplotlib](https://matplotlib.org/), [jupyter](https://jupyter.org/install).
 It also makes use of a useful package for tracking units called [numericalunits](https://pypi.org/project/numericalunits/)
 
+> **Note on import order:** DMeRates re-randomizes the `numericalunits` base unit scales when it is first imported (a runtime unit-correctness check). Any quantity built with `numericalunits` *before* importing DMeRates becomes invalid afterwards — always import DMeRates first, then create your `nu`-scaled values. DMeRates emits a `RuntimeWarning` if it detects `numericalunits` was imported first.
+
 ### Citing
 If you make use of this code or numerical results please see the CITATION.cff. If using our modulation results please cite our paper [arXiv:2507.00344](http://arxiv.org/abs/2507.00344)
 

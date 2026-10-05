@@ -213,6 +213,9 @@ SITE_COORDS = {
     "SOUDAN": (47.8208333, -92.2361111, 481),
     "SUPL": (-36.060, 142.801, 0),
     "CAPETOWN": (-33.9249, 18.4241, 0),
+    # Preliminary JUNO coordinates use the Kaiping/Jinji-area site.
+    # Replace with exact detector coordinates if/when they are fixed.
+    "JUNO": (22.38, 112.70, 0),
 }
 
 SITE_ALIASES = {
@@ -238,6 +241,10 @@ SITE_ALIASES = {
     "CAPE TOWN": "CAPETOWN",
     "CAPE TOWN, AFRICA": "CAPETOWN",
     "PAUL": "CAPETOWN",
+    "JUNO": "JUNO",
+    "JIANGMEN": "JUNO",
+    "KAIPING": "JUNO",
+    "JINJI": "JUNO",
 }
 
 def get_site_thetaiso_loc(site):

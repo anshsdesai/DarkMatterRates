@@ -269,3 +269,155 @@ def test_damascus_bin_average_representative_angles_are_bin_centers():
 
     assert np.allclose(angles, [22.5, 67.5])
     assert not np.allclose(angles, [0.0, 45.0])
+
+
+
+def test_srdm_original_modulation_summary_uses_half_peak_to_peak():
+    from modulation_study.Modulation import _srdm_original_modulation_summary
+
+    summary = _srdm_original_modulation_summary(
+        "times",
+        np.array([0.0, 90.0, 180.0]),
+        np.array([[2.0], [6.0], [10.0]]),
+    )
+
+    assert summary["amplitude"][0] == pytest.approx(4.0)
+    assert summary["average"][0] == pytest.approx(6.0)
+    assert summary["fractional_amplitude"][0] == pytest.approx(4.0 / 6.0)
+
+
+def test_srdm_original_modulation_summary_zero_average_is_finite():
+    from modulation_study.Modulation import _srdm_original_modulation_summary
+
+    summary = _srdm_original_modulation_summary(
+        "times",
+        np.array([0.0, 90.0, 180.0]),
+        np.array([[0.0], [0.0], [0.0]]),
+    )
+
+    assert summary["amplitude"][0] == pytest.approx(0.0)
+    assert summary["average"][0] == pytest.approx(0.0)
+    assert summary["fractional_amplitude"][0] == pytest.approx(0.0)
+
+
+def test_srdm_solar_reflection_amplitude_uses_daily_rates(monkeypatch):
+    import modulation_study.Modulation as modulation
+
+    def fake_daily_rates(*args, **kwargs):
+        return "times", np.array([0.0, 90.0, 180.0]), np.array([[1.0], [3.0], [5.0]])
+
+    monkeypatch.setattr(modulation, "get_srdm_daily_rates", fake_daily_rates)
+
+    summary = modulation.get_srdm_solar_reflection_amplitude(
+        material="Si",
+        mX=1.0,
+        sigmaE=1e-36,
+        FDMn=2,
+        ne=1,
+        location="JUNO",
+        date=[8, 8, 2024],
+        use_cache=False,
+    )
+
+    assert summary["amplitude"][0] == pytest.approx(2.0)
+    assert summary["average"][0] == pytest.approx(3.0)
+    assert summary["fractional_amplitude"][0] == pytest.approx(2.0 / 3.0)
+
+
+def test_discover_srdm_solar_reflection_points_uses_verne_layout(tmp_path):
+    from modulation_study.Modulation import discover_srdm_solar_reflection_points
+
+    point_dir = (
+        tmp_path
+        / "modulated"
+        / "FDMq2"
+        / "Verne"
+        / "SRDMBeam"
+        / "mDM_1_0_MeV_sigmaE_1e-36_cm2"
+    )
+    point_dir.mkdir(parents=True)
+    for ring in [0, 1, 2]:
+        (
+            point_dir
+            / f"Differential_SRDM_Flux_mDM_1_0_MeV_sigmaE_1e-36_cm2_isoangle_{ring}.txt"
+        ).write_text("100.0 1.0\n")
+
+    points = discover_srdm_solar_reflection_points(
+        FDMn=2,
+        modulated_source="Verne",
+        base_data_dir=tmp_path,
+    )
+
+    assert len(points) == 1
+    assert points[0]["mX_MeV"] == pytest.approx(1.0)
+    assert points[0]["sigma_e_cm2"] == pytest.approx(1e-36)
+    assert points[0]["ring_indices"] == [0, 1, 2]
+
+
+def test_srdm_solar_reflection_contour_data_interpolates(monkeypatch):
+    import modulation_study.Modulation as modulation
+
+    def fake_amplitudes(**kwargs):
+        return (
+            np.array([1.0, 1.0, 10.0, 10.0]),
+            np.array([1e-40, 1e-38, 1e-40, 1e-38]),
+            np.array([1.0, 2.0, 3.0, 4.0]),
+        )
+
+    monkeypatch.setattr(modulation, "get_srdm_solar_reflection_amplitudes", fake_amplitudes)
+
+    masses, sigmaEs, grid = modulation.get_srdm_solar_reflection_contour_data(
+        grid_size=5,
+    )
+
+    assert masses.shape == (5,)
+    assert sigmaEs.shape == (5,)
+    assert grid.shape == (5, 5)
+    assert np.isfinite(grid[0, 0])
+
+
+
+def test_srdm_solar_reflection_amplitude_writes_and_reuses_cache(monkeypatch, tmp_path):
+    import modulation_study.Modulation as modulation
+
+    calls = {"count": 0}
+
+    def fake_daily_rates(*args, **kwargs):
+        calls["count"] += 1
+        return ["t0", "t1", "t2"], np.array([0.0, 90.0, 180.0]), np.array([[1.0], [3.0], [5.0]])
+
+    monkeypatch.setattr(modulation, "get_srdm_daily_rates", fake_daily_rates)
+
+    first = modulation.get_srdm_solar_reflection_amplitude(
+        material="Si",
+        mX=1.0,
+        sigmaE=1e-36,
+        FDMn=2,
+        ne=1,
+        location="JUNO",
+        date=[8, 8, 2024],
+        cache_dir=tmp_path,
+    )
+    assert calls["count"] == 1
+    assert first["from_cache"] is False
+    assert Path(first["cache_file"]).exists()
+    assert (Path(first["cache_file"]).parents[1] / "summary.csv").exists()
+
+    def fail_if_recomputed(*args, **kwargs):
+        raise AssertionError("daily rates should have been loaded from cache")
+
+    monkeypatch.setattr(modulation, "get_srdm_daily_rates", fail_if_recomputed)
+    second = modulation.get_srdm_solar_reflection_amplitude(
+        material="Si",
+        mX=1.0,
+        sigmaE=1e-36,
+        FDMn=2,
+        ne=1,
+        location="JUNO",
+        date=[8, 8, 2024],
+        cache_dir=tmp_path,
+    )
+
+    assert second["from_cache"] is True
+    assert second["amplitude"][0] == pytest.approx(first["amplitude"][0])
+    assert second["fractional_amplitude"][0] == pytest.approx(first["fractional_amplitude"][0])

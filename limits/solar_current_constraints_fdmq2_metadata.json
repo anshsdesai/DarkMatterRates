@@ -1,0 +1,195 @@
+{
+  "kind": "solar",
+  "FDMn": 2,
+  "limits_dir": "/home/ansh/Projects/SENSEI/DarkMatterRates/limits",
+  "source_dir": "/home/ansh/Projects/SENSEI/DarkMatterRates/limits/DM-e-FDMq2",
+  "output": "/home/ansh/Projects/SENSEI/DarkMatterRates/limits/solar_current_constraints_fdmq2.csv",
+  "metadata_csv": "/home/ansh/Projects/SENSEI/DarkMatterRates/limits/solar_current_constraints_fdmq2_metadata.csv",
+  "mass_min": 0.01,
+  "mass_max": 9.967725062350482,
+  "mass_points_requested": 200,
+  "mass_points_written": 200,
+  "included_files": [
+    "SolarReflection_XE1T_S2_FDMq2_210810332.csv",
+    "blinded_light_mediator_srdm_good_channelized_interpolated_snolabrun1_solar.csv",
+    "cdex10_solar.csv",
+    "damic_srdm_2026.csv",
+    "xenon1t_solar_s2only.csv",
+    "xenon1t_srdm.csv",
+    "xenon_nt_2025_solar_d1.csv"
+  ],
+  "selection_counts": {
+    "blinded_light_mediator_srdm_good_channelized_interpolated_snolabrun1_solar.csv": 1,
+    "cdex10_solar.csv": 71,
+    "damic_srdm_2026.csv": 83,
+    "xenon1t_srdm.csv": 43,
+    "xenon_nt_2025_solar_d1.csv": 2
+  },
+  "file_audit": [
+    {
+      "file": "DAMICM_UltraLightMediator_2022.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "DAMICSNOLAB2019FDMq2Data.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "DarkSide50_2019FDMq2Data.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "Darkside2022fdmq2.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "EDELWEISS2020FDMq2Data.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "EJ3012019FDMq2Data.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "PANDAXII2021FDMq2Data.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "SENSEI2018MinosFDMq2Data.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "SENSEI2018SurfaceFDMq2Data.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "SENSEI2020MinosFDMq2Data.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "SolarReflection_XE1T_S2_FDMq2_210810332.csv",
+      "status": "included",
+      "reason": "included_solar_or_srdm"
+    },
+    {
+      "file": "SuperCDMSSurface2018FDMq2.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "XENON100_2017FDMq2Data.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "XENON10_2017FDMq2Data.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "XENON1T2019FDMq2Data.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "XENON1TSE2021FDMq2Data.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "XenonnT2025.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "blinded_light_mediator_srdm_good_channelized_interpolated_snolabrun1_solar.csv",
+      "status": "included",
+      "reason": "included_solar_or_srdm"
+    },
+    {
+      "file": "cdex10_solar.csv",
+      "status": "included",
+      "reason": "included_solar_or_srdm"
+    },
+    {
+      "file": "damicM_modulation_light.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "damic_2023_q2.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "damic_2025_direct_light_qcdark.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "damic_realq2.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "damic_sensei2020recast_q2.csv",
+      "status": "excluded",
+      "reason": "recast"
+    },
+    {
+      "file": "damic_srdm_2026.csv",
+      "status": "included",
+      "reason": "included_solar_or_srdm"
+    },
+    {
+      "file": "panda-x4t.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "snolab_1e_light_limit_qcdark.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "snolab_light_limit_qcdark.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "superCDMS2019FDMq2.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "xenon1t2022FDMq2.csv",
+      "status": "excluded",
+      "reason": "not_solar_or_srdm"
+    },
+    {
+      "file": "xenon1t_solar_s2only.csv",
+      "status": "included",
+      "reason": "included_solar_or_srdm"
+    },
+    {
+      "file": "xenon1t_srdm.csv",
+      "status": "included",
+      "reason": "included_solar_or_srdm"
+    },
+    {
+      "file": "xenon_nt_2025_solar_d1.csv",
+      "status": "included",
+      "reason": "included_solar_or_srdm"
+    }
+  ]
+}
